@@ -1,15 +1,17 @@
 // F-001 follow-up: the naming recipe keeps whole words and still rejects abbreviations.
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 
-const projectRoot = new URL("../..", import.meta.url).pathname;
+const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 async function lintSnippet(sourceText: string): Promise<string[]> {
   const linter = new ESLint({ cwd: projectRoot });
   // The type-aware project service only parses paths it knows, so the snippet
   // is linted as if it were an existing source file; nothing is written to disk.
   const [result] = await linter.lintText(sourceText, {
-    filePath: `${projectRoot}src/main.ts`,
+    filePath: path.join(projectRoot, "src", "main.ts"),
   });
   return (result?.messages ?? []).map((message) => message.ruleId ?? "");
 }
