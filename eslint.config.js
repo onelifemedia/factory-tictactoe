@@ -32,6 +32,13 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
+    // F-012: the CI guard scripts run in Node, so its globals are declared.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { console: "readonly", process: "readonly" },
+    },
+  },
+  {
     languageOptions: { parserOptions: { projectService: true } },
     plugins: { unicorn },
     rules: {
