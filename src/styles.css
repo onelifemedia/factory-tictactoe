@@ -198,3 +198,57 @@ body {
   position: relative;
   z-index: 1;
 }
+
+/* F-007: game over. Winning squares: thicker border, strike line and a pale
+   fill, so colour is never the only cue (R-005, WCAG 1.4.1). */
+.button--play-again {
+  width: 100%;
+}
+
+.square[data-winning="true"] {
+  background: var(--color-win-surface);
+  border: var(--size-border-win) solid var(--color-win-marker);
+}
+
+.square[data-winning="true"]::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--color-win-marker);
+  pointer-events: none;
+}
+
+.square[data-line="row"]::after {
+  width: calc(100% + var(--size-square-gap) + 2 * var(--size-border-win) + 2px);
+  height: var(--size-win-line);
+  transform: translate(-50%, -50%);
+}
+
+.square[data-line="column"]::after {
+  width: var(--size-win-line);
+  height: calc(
+    100% + var(--size-square-gap) + 2 * var(--size-border-win) + 2px
+  );
+  transform: translate(-50%, -50%);
+}
+
+.square[data-line="diagonal-down"]::after,
+.square[data-line="diagonal-up"]::after {
+  width: calc(141% + var(--size-square-gap) * 1.41 + 12px);
+  height: var(--size-win-line);
+}
+
+.square[data-line="diagonal-down"]::after {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.square[data-line="diagonal-up"]::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.square[data-winning="true"] .mark {
+  background: var(--color-win-surface);
+  border-radius: 50%;
+  padding: 0 0.08em;
+}
