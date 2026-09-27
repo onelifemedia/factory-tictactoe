@@ -546,7 +546,15 @@ test.describe("keyboard play and managed focus (F-008)", () => {
     await moveFocusToSquare(page, 5);
 
     await page.keyboard.press("Tab");
-    await expect.poll(() => readFocusedSquareIndex(page)).toBeNull();
+    // The board is the only tabbable element during play: Chromium and WebKit
+    // move focus out of the page, while headless Firefox (no browser chrome)
+    // wraps straight back to it. Either way Tab must never land on another square.
+    await expect
+      .poll(async () => {
+        const index = await readFocusedSquareIndex(page);
+        return index === null || index === 5;
+      })
+      .toBe(true);
 
     await page.keyboard.press("Shift+Tab");
     await expectFocusedSquare(page, 5);
@@ -558,7 +566,15 @@ test.describe("keyboard play and managed focus (F-008)", () => {
     await expectFocusedSquare(page, 5);
 
     await page.keyboard.press("Tab");
-    await expect.poll(() => readFocusedSquareIndex(page)).toBeNull();
+    // The board is the only tabbable element during play: Chromium and WebKit
+    // move focus out of the page, while headless Firefox (no browser chrome)
+    // wraps straight back to it. Either way Tab must never land on another square.
+    await expect
+      .poll(async () => {
+        const index = await readFocusedSquareIndex(page);
+        return index === null || index === 5;
+      })
+      .toBe(true);
 
     await page.keyboard.press("Shift+Tab");
     await expectFocusedSquare(page, 5);
