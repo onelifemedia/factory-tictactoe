@@ -41,10 +41,22 @@ export function measureGzippedJavaScript(directory) {
  */
 function runCommandLine(commandArguments) {
   const limitFlagIndex = commandArguments.indexOf("--limit");
-  const limitBytes =
-    limitFlagIndex === -1
-      ? DEFAULT_LIMIT_BYTES
-      : Number(commandArguments[limitFlagIndex + 1]);
+  let limitBytes = DEFAULT_LIMIT_BYTES;
+  if (limitFlagIndex !== -1) {
+    // A malformed limit must never disable the check (Codex F-012 review C3).
+    const limitText = commandArguments[limitFlagIndex + 1] ?? "";
+    limitBytes = Number(limitText);
+    if (
+      !/^\d+$/.test(limitText) ||
+      !Number.isSafeInteger(limitBytes) ||
+      limitBytes <= 0
+    ) {
+      console.error(
+        `--limit needs a positive whole number of bytes, got "${limitText}".`,
+      );
+      return 2;
+    }
+  }
   const isLimitValue = (/** @type {number} */ index) =>
     limitFlagIndex !== -1 && index === limitFlagIndex + 1;
   const directory =
