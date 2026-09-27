@@ -270,6 +270,26 @@ describe("findExternalReferences regressions (F-012 R-012)", () => {
       body: '@import "https://cdn.example.com/x.css";',
       url: "cdn.example.com",
     },
+    // Codex F-012 review round 2: Vite's minified CSS drops the quotes, and a
+    // quoted attribute may contain ">".
+    {
+      name: "unquoted minified CSS font url",
+      file: "assets/app.css",
+      body: '@font-face{font-family:x;src:url(https://cdn.example.com/font.woff2)format("woff2")}',
+      url: "cdn.example.com",
+    },
+    {
+      name: "CSS @import url()",
+      file: "assets/app.css",
+      body: "@import url(https://cdn.example.com/style.css);body{color:red}",
+      url: "cdn.example.com",
+    },
+    {
+      name: "iframe with > inside a quoted attribute",
+      file: "index.html",
+      body: '<iframe title="Scores > details" src="https://example.com"></iframe>',
+      url: "example.com",
+    },
   ];
   for (const regressionCase of regressionCases) {
     it(`reports ${regressionCase.name}`, () => {
