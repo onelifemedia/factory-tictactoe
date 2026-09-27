@@ -57,3 +57,17 @@ Rework review: Codex, AGREE-WITH-CONCERNS (1 high, 1 missing).
 - **Missing, accepted:** start-up exception handling was untested. Added a criterion that serves `index.html` without the board root so `main.ts` throws and the message appears.
 
 Rejected: none. No blocking findings remain open.
+
+## Rework 2 (2026-09-27): deploy concurrency and rollback target, after the planning review
+
+The approver chose option (a): fix architecture §6 and ADR-011 (Codex plan review C1/C2/C4).
+- **Verification:** the `concurrency.queue` key was checked against GitHub's official docs (https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) on 2026-09-27. It takes the values `single` (default: at most one pending run; an older pending run is cancelled and replaced) and `max` (up to 100 pending; the overflow is cancelled). Processing is first in, first out; `queue: max` with `cancel-in-progress: true` is a validation error; the docs example is workflow-level. It is confirmed as described and used; the URL is cited in ADR-011.
+- **Changes:**
+  - architecture §6 and ADR-011: `queue: max`, the latest-commit check after acquiring the slot, the rollback target requires successful deploy and smoke jobs, and manual dispatch refuses when CI is pending or failed.
+  - acceptance R-014: rollback-target wording, plus two new criteria (overlapping runs; dispatch refusal).
+  - PRD R-014: one-phrase clarification, "whose deploy and smoke test both succeeded".
+- **Rework review (Codex):** AGREE, with 1 medium finding and 1 missing note.
+  - C1 (MEDIUM), accepted as a documented limit: if more than 100 runs are pending, the overflow is cancelled. The remedy is to re-run the deploy for main's tip. This follows Codex's second option; no retry trigger was added, keeping the rollback minimal.
+  - Missing, accepted: "latest" is evaluated when a run acquires the slot; a newer commit's queued run deploys next.
+
+Rejected: none. No blocking findings remain open.
