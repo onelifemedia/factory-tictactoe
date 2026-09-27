@@ -157,7 +157,20 @@ export default tseslint.config(
         { min: 3, exceptions: ["id", "ui", "_"], properties: "never" },
       ],
       "id-denylist": ["error", ...vagueNames],
-      "unicorn/name-replacements": ["error", { checkFilenames: true }],
+      // unicorn 76's defaults also *shorten* four whole words (repository -> repo,
+      // configuration -> config, application(s) -> app(s)); switch those off.
+      "unicorn/name-replacements": [
+        "error",
+        {
+          checkFilenames: true,
+          replacements: {
+            application: false,
+            applications: false,
+            configuration: false,
+            repository: false,
+          },
+        },
+      ],
       "unicorn/consistent-boolean-name": "error",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
       "@typescript-eslint/naming-convention": [
