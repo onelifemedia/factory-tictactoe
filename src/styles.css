@@ -277,3 +277,15 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+/* F-011: no-JavaScript and load-error messages, in the status style. */
+.fallback {
+  margin: 0;
+  font-size: var(--font-size-status);
+  line-height: var(--font-line-status);
+  font-weight: var(--font-weight-bold);
+}
+
+.fallback[hidden] {
+  display: none;
+}
