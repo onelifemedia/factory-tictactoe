@@ -42,6 +42,9 @@ interface StaticServerOptions {
   // HTML request so Playwright's start-up time does not eat into it.
   staleForMilliseconds: number;
   firstHtmlRequestMilliseconds?: number;
+  // Serve only beneath this path, like GitHub Pages serves a project site
+  // under /<repository>/ (Codex F-013 review C1). Other paths answer 404.
+  pathPrefix?: string;
 }
 
 interface RunningServer {
@@ -87,10 +90,14 @@ function respondWithStaticFile(
   request: IncomingMessage,
   response: ServerResponse,
 ): void {
-  const filePath = resolveRequestedFile(
-    options.outDirectory,
-    request.url ?? "/",
-  );
+  const prefix = options.pathPrefix ?? "/";
+  const requestUrl = request.url ?? "/";
+  const filePath = requestUrl.startsWith(prefix)
+    ? resolveRequestedFile(
+        options.outDirectory,
+        `/${requestUrl.slice(prefix.length)}`,
+      )
+    : null;
   if (filePath === null) {
     response.writeHead(404, { "Content-Type": "text/plain" });
     response.end("Not found");
@@ -126,7 +133,10 @@ async function startStaticServer(
     server.listen(0, "127.0.0.1", resolveListening);
   });
   const { port } = server.address() as AddressInfo;
-  return { server, url: `http://127.0.0.1:${String(port)}/` };
+  return {
+    server,
+    url: `http://127.0.0.1:${String(port)}${options.pathPrefix ?? "/"}`,
+  };
 }
 
 async function stopStaticServer(server: Server): Promise<void> {
@@ -209,6 +219,26 @@ describe.skipIf(!process.env["RUN_SMOKE_HARNESS"])(
         rmSync(outDirectory, { recursive: true, force: true });
       }
     });
+
+    it(
+      "passes when the site is served only beneath a project path, as on GitHub Pages (Codex C1)",
+      async () => {
+        runningServer = await startStaticServer({
+          outDirectory,
+          staleForMilliseconds: 0,
+          pathPrefix: "/factory-tictactoe/",
+        });
+
+        const smokeRun = await runSmokeTest(
+          runningServer.url,
+          HARNESS_BUILD_ID,
+          "10",
+        );
+
+        expect(smokeRun.exitCode, smokeRun.output).toBe(0);
+      },
+      HARNESS_TIMEOUT_MILLISECONDS,
+    );
 
     it(
       "passes when the served build id matches EXPECTED_BUILD_ID",

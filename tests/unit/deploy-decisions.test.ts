@@ -26,6 +26,7 @@ import {
   findRollbackRun,
   selectRollbackRun,
 } from "../../scripts/deploy/select-rollback-run.mjs";
+import { buildRunsEndpoint } from "../../scripts/deploy/find-rollback-run.mjs";
 
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url));
 const deployScriptsDirectory = path.join(projectRoot, "scripts", "deploy");
@@ -601,4 +602,51 @@ describe("deploy decision CLIs (F-013 R-014)", () => {
       }
     });
   }
+});
+
+// Codex F-013 review C2/C3: main's own push CI decides a dispatch, and the
+// rollback history is listed unfiltered (filtered searches stop at 1,000).
+describe("deploy decisions review follow-ups (F-013 R-014)", () => {
+  it("refuses a dispatch when only a pull-request run succeeded and main's push run is still in progress (Codex C2)", () => {
+    const resolution = resolveDispatchSha({
+      mainTipSha: MAIN_TIP_SHA,
+      ciRuns: [
+        {
+          ...createCiRun(21, MAIN_TIP_SHA, "completed", "success"),
+          event: "pull_request",
+          head_branch: "feature",
+        },
+        createCiRun(22, MAIN_TIP_SHA, "in_progress", null),
+      ],
+    });
+
+    expect(resolution).not.toHaveProperty("sha");
+    expect(readRefusal(resolution)).toMatch(/in.progress/i);
+  });
+
+  it("builds an unfiltered runs endpoint so pagination is not capped at 1,000 results (Codex C3)", () => {
+    const endpoint = buildRunsEndpoint("owner/repository", 11);
+
+    expect(endpoint).toContain("actions/workflows/deploy.yml/runs");
+    expect(endpoint).toContain("page=11");
+    expect(endpoint).not.toMatch(
+      /[?&](branch|status|event|actor|created|head_sha)=/,
+    );
+  });
+
+  it("skips runs that are not completed runs on main while paging (Codex C3)", async () => {
+    const runs = [
+      { ...createDeployRun(30, "success"), head_branch: "feature" },
+      { ...createDeployRun(20, null), status: "in_progress" },
+      createDeployRun(10, "success"),
+    ];
+    const runId = await findRollbackRun({
+      fetchRunsPage: (pageNumber: number) => (pageNumber === 1 ? runs : []),
+      fetchJobs: () => goodDeployJobs(),
+      currentRunId: 99,
+      pageSize: PAGE_SIZE,
+    });
+
+    expect(runId).toBe(10);
+  });
 });
