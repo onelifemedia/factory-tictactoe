@@ -213,3 +213,94 @@ describe("check-build-origins CLI (F-012 R-012 R-013)", () => {
     expect(result.status).not.toBeNull();
   });
 });
+
+// Codex F-012 review C1/C2: references the first scanner missed.
+describe("findExternalReferences regressions (F-012 R-012)", () => {
+  const regressionCases: readonly {
+    name: string;
+    file: string;
+    body: string;
+    url: string;
+  }[] = [
+    {
+      name: "unquoted script src",
+      file: "index.html",
+      body: "<script src=https://cdn.example.com/x.js></script>",
+      url: "cdn.example.com",
+    },
+    {
+      name: "whitespace-padded iframe src",
+      file: "index.html",
+      body: '<iframe src=" https://example.com"></iframe>',
+      url: "example.com",
+    },
+    {
+      name: "entity-encoded link href",
+      file: "index.html",
+      body: '<link rel="stylesheet" href="&#47;&#47;cdn.example.com/x.css">',
+      url: "cdn.example.com",
+    },
+    {
+      name: "relative script under an external base",
+      file: "index.html",
+      body: '<base href="https://cdn.example.com/"><script src="./x.js"></script>',
+      url: "cdn.example.com",
+    },
+    {
+      name: "inline module importing another origin",
+      file: "index.html",
+      body: '<script type="module">import "https://cdn.example.com/inline.js";</script>',
+      url: "cdn.example.com",
+    },
+    {
+      name: "escaped dynamic import",
+      file: "assets/app.js",
+      body: 'const lazy = import("https:\\/\\/cdn.example.com/x.js");',
+      url: "cdn.example.com",
+    },
+    {
+      name: "side-effect import",
+      file: "assets/app.js",
+      body: 'import "https://cdn.example.com/side.js";',
+      url: "cdn.example.com",
+    },
+    {
+      name: "CSS string @import",
+      file: "assets/app.css",
+      body: '@import "https://cdn.example.com/x.css";',
+      url: "cdn.example.com",
+    },
+  ];
+  for (const regressionCase of regressionCases) {
+    it(`reports ${regressionCase.name}`, () => {
+      const directory = mkdtempSync(
+        path.join(tmpdir(), "build-origins-regression-"),
+      );
+      try {
+        const filePath = path.join(directory, regressionCase.file);
+        mkdirSync(path.dirname(filePath), { recursive: true });
+        writeFileSync(filePath, regressionCase.body);
+        const findings = findExternalReferences(directory);
+        expect(findings.length).toBeGreaterThan(0);
+        expect(JSON.stringify(findings)).toContain(regressionCase.url);
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    });
+  }
+
+  it("still accepts relative references under a same-origin base and plain inline scripts", () => {
+    const directory = mkdtempSync(
+      path.join(tmpdir(), "build-origins-regression-"),
+    );
+    try {
+      writeFileSync(
+        path.join(directory, "index.html"),
+        '<base href="./"><script src="./assets/app.js"></script><script>window.addEventListener("error", () => {}, true);</script><link rel="icon" href="/favicon.svg">',
+      );
+      expect(findExternalReferences(directory)).toEqual([]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});

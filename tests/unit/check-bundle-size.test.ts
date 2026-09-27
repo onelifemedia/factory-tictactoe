@@ -202,3 +202,31 @@ describe("check-bundle-size CLI (F-012 R-011)", () => {
     },
   );
 });
+
+// Codex F-012 review C3: a malformed limit must not disable the check.
+describe("check-bundle-size limit validation (F-012 R-011)", () => {
+  for (const limitArguments of [
+    ["--limit"],
+    ["--limit", "garbage"],
+    ["--limit", "Infinity"],
+    ["--limit", "0"],
+    ["--limit", "-5"],
+    ["--limit", "12.5"],
+  ]) {
+    it(`rejects ${limitArguments.join(" ")} with a non-zero exit`, () => {
+      const directory = mkdtempSync(path.join(tmpdir(), "bundle-size-limit-"));
+      try {
+        writeFileSync(path.join(directory, "main.js"), "console.log(1);\n");
+        const result = spawnSync(
+          process.execPath,
+          [scriptPath, directory, ...limitArguments],
+          { encoding: "utf8" },
+        );
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain("--limit");
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    });
+  }
+});
