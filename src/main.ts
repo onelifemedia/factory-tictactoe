@@ -1,4 +1,4 @@
-// F-001, F-006: wires the pure game (src/game) to the page (src/ui).
+// F-001, F-006, F-007: wires the pure game (src/game) to the page (src/ui).
 import "./styles.css";
 import {
   playHumanMove,
@@ -31,6 +31,9 @@ const view = createGameView(
     },
     onSquareActivated(index) {
       apply(playHumanMove(current.state, index));
+    },
+    onPlayAgain() {
+      apply(resetToChoosing());
     },
   },
 );

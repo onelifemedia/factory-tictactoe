@@ -1,7 +1,7 @@
 // F-006 (R-001, R-002, R-010): renders the game state into the page.
 // Every attribute is derived from the state on each render, and stale ones are
 // removed, so any phase can follow any other (render contract, F-006 spec).
-import type { Board, Cell } from "../game/board";
+import type { Board, Cell, Line } from "../game/board";
 import type { FirstMover, GameState } from "../game/game";
 import { squareLabel } from "./messages";
 
@@ -20,6 +20,21 @@ export interface GameViewElements {
 export interface GameViewHandlers {
   onChooseFirstMover: (firstMover: FirstMover) => void;
   onSquareActivated: (index: number) => void;
+  onPlayAgain: () => void;
+}
+
+export type LineDirection = "row" | "column" | "diagonal-down" | "diagonal-up";
+
+/** The strike direction of a winning line, classified by its squares. */
+export function classifyLine(line: Line): LineDirection {
+  const [first, second] = line;
+  if (first === 0 && second === 4) {
+    return "diagonal-down";
+  }
+  if (first === 2 && second === 4) {
+    return "diagonal-up";
+  }
+  return second - first === 1 ? "row" : "column";
 }
 
 export interface GameView {
@@ -66,11 +81,29 @@ function createChoice(handlers: GameViewHandlers): HTMLElement {
   return choice;
 }
 
+function createPlayAgain(handlers: GameViewHandlers): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "button button--play-again";
+  button.textContent = "Play again";
+  button.addEventListener("click", () => {
+    handlers.onPlayAgain();
+  });
+  return button;
+}
+
+function winningLineOf(state: GameState): Line | null {
+  return state.phase === "over" && state.result.kind === "win"
+    ? state.result.line
+    : null;
+}
+
 function renderSquare(
   square: HTMLButtonElement,
   index: number,
   cell: Cell,
   isPlaying: boolean,
+  winningLine: Line | null,
 ): void {
   const mark = square.firstElementChild;
   if (mark) {
@@ -82,6 +115,13 @@ function renderSquare(
     square.setAttribute("aria-disabled", "true");
   } else {
     square.removeAttribute("aria-disabled");
+  }
+  if (winningLine?.includes(index)) {
+    square.dataset["winning"] = "true";
+    square.dataset["line"] = classifyLine(winningLine);
+  } else {
+    delete square.dataset["winning"];
+    delete square.dataset["line"];
   }
 }
 
@@ -102,6 +142,8 @@ export function createGameView(
     renderedPhase = state.phase;
     if (state.phase === "choosing") {
       elements.actions.replaceChildren(createChoice(handlers));
+    } else if (state.phase === "over") {
+      elements.actions.replaceChildren(createPlayAgain(handlers));
     } else {
       elements.actions.replaceChildren();
     }
@@ -112,8 +154,15 @@ export function createGameView(
       elements.status.textContent = status;
       const board = state.phase === "choosing" ? EMPTY_BOARD : state.board;
       const isPlaying = state.phase === "playing";
+      const winningLine = winningLineOf(state);
       squares.forEach((square, index) => {
-        renderSquare(square, index, board[index] ?? null, isPlaying);
+        renderSquare(
+          square,
+          index,
+          board[index] ?? null,
+          isPlaying,
+          winningLine,
+        );
       });
       renderActions(state);
     },
