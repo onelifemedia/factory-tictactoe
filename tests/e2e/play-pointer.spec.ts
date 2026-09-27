@@ -77,6 +77,23 @@ async function readSquareContents(page: Page): Promise<string[]> {
   );
 }
 
+/**
+ * The visible mark in every square matches its accessible name (Codex F-006
+ * review C1): a board that announces X or O must also show it.
+ */
+async function expectVisibleMarksMatchNames(page: Page): Promise<void> {
+  for (const square of await locateSquares(page).all()) {
+    const name = (await square.getAttribute("aria-label")) ?? "";
+    const expectedMark =
+      name.endsWith(", X") || name.endsWith(", O") ? name.slice(-1) : "";
+    const mark = square.locator(".mark");
+    await expect(mark).toHaveText(expectedMark);
+    if (expectedMark !== "") {
+      await expect(mark).toBeVisible();
+    }
+  }
+}
+
 async function expectEverySquareNativelyDisabled(page: Page): Promise<void> {
   const squares = locateSquares(page);
   await expect(squares).toHaveCount(SQUARE_COUNT);
@@ -114,6 +131,7 @@ async function playMoves(
         locateSquare(page, movePair.computerReply),
       ).toHaveAccessibleName(/, O$/);
     }
+    await expectVisibleMarksMatchNames(page);
   }
 }
 
@@ -188,6 +206,7 @@ test.describe("render and pointer play (F-006)", () => {
     await expect(locateStatus(page)).toHaveText(
       "Computer placed O in row 1, column 1. Your turn. You are X.",
     );
+    await expectVisibleMarksMatchNames(page);
   });
 
   test("activating an occupied square changes nothing and shows the taken message until the next valid move (F-006 R-001)", async ({
