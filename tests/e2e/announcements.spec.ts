@@ -36,7 +36,12 @@ function locateAnnouncer(page: Page): Locator {
   return page.getByRole("status");
 }
 
-/** Records the region's text after every mutation into window state. */
+/**
+ * Records every individual write to the region into window state: one entry
+ * per mutation record, not per observer callback, because records are
+ * delivered in batches (Codex F-009 review C1). A write adds a text node
+ * (recorded as its text); clearing adds none (recorded as "").
+ */
 async function startRecordingAnnouncements(page: Page): Promise<void> {
   await page.evaluate(() => {
     const region = document.getElementById("announcer");
@@ -45,8 +50,20 @@ async function startRecordingAnnouncements(page: Page): Promise<void> {
     }
     const records: string[] = [];
     (window as AnnouncementRecordingWindow).announcementRecords = records;
-    const observer = new MutationObserver(() => {
-      records.push(region.textContent ?? "");
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "characterData") {
+          records.push(mutation.target.textContent ?? "");
+          continue;
+        }
+        if (mutation.addedNodes.length === 0) {
+          records.push("");
+          continue;
+        }
+        for (const node of mutation.addedNodes) {
+          records.push(node.textContent ?? "");
+        }
+      }
     });
     observer.observe(region, {
       childList: true,
@@ -124,6 +141,24 @@ async function expectSquareNames(
 test.describe("announcements (F-009 R-008)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
+  });
+
+  test("the recorder counts two synchronous writes as two writes (F-009 R-008)", async ({
+    page,
+  }) => {
+    await startRecordingAnnouncements(page);
+    await page.evaluate(() => {
+      const region = document.getElementById("announcer");
+      if (region) {
+        region.textContent = "incorrect";
+        region.textContent = "expected";
+      }
+    });
+    await waitTwoAnimationFrames(page);
+    expect(await readAnnouncementRecords(page)).toEqual([
+      "incorrect",
+      "expected",
+    ]);
   });
 
   test("a fresh load has one empty, visually hidden role=status region inside main (F-009 R-008)", async ({
@@ -259,7 +294,7 @@ test.describe("announcements (F-009 R-008)", () => {
     await expectSquareNames(page, [0], [4]);
   });
 
-  test("activating the same taken square twice clears the region and sets A8 again, so it is heard twice (F-009 R-008)", async ({
+  test("activating the same taken square twice clears the region and sets A8 again, so a screen reader can announce it again (F-009 R-008)", async ({
     page,
   }, testInfo) => {
     await chooseFirstMover(page, testInfo, "You go first");
