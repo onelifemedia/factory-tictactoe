@@ -263,7 +263,13 @@ test.describe("layout: text enlarged to 200% (F-010 R-010, WCAG 1.4.4)", () => {
     }, testInfo) => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.goto("/");
-      await page.addStyleTag({ content: "html { font-size: 200%; }" });
+      // A wide font present on both macOS (Verdana) and the Linux CI runners
+      // (DejaVu Sans) makes this platform-independent: macOS's narrower system
+      // font hid a clipped label that CI caught.
+      await page.addStyleTag({
+        content:
+          "html { font-size: 200%; } body, button { font-family: Verdana, 'DejaVu Sans', sans-serif !important; }",
+      });
       await gameState.reach(page, testInfo);
 
       const textFits = await page.evaluate(() =>
