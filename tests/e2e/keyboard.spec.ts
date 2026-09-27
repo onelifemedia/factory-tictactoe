@@ -543,19 +543,21 @@ test.describe("keyboard play and managed focus (F-008)", () => {
     page,
   }) => {
     await chooseFirstMoverByKeyboard(page, "You go first");
+    // Test-only fixture (Codex F-008 review C1): a focusable element after the
+    // game, so Tab has somewhere to go in every browser. It does not drive play.
+    await page.evaluate(() => {
+      const probe = document.createElement("button");
+      probe.id = "after-game-probe";
+      probe.type = "button";
+      probe.tabIndex = 0;
+      probe.textContent = "After the game";
+      document.querySelector("main")?.after(probe);
+    });
+    const probe = page.locator("#after-game-probe");
     await moveFocusToSquare(page, 5);
 
     await page.keyboard.press("Tab");
-    // The board is the only tabbable element during play: Chromium and WebKit
-    // move focus out of the page, while headless Firefox (no browser chrome)
-    // wraps straight back to it. Either way Tab must never land on another square.
-    await expect
-      .poll(async () => {
-        const index = await readFocusedSquareIndex(page);
-        return index === null || index === 5;
-      })
-      .toBe(true);
-
+    await expect(probe).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expectFocusedSquare(page, 5);
 
@@ -566,16 +568,7 @@ test.describe("keyboard play and managed focus (F-008)", () => {
     await expectFocusedSquare(page, 5);
 
     await page.keyboard.press("Tab");
-    // The board is the only tabbable element during play: Chromium and WebKit
-    // move focus out of the page, while headless Firefox (no browser chrome)
-    // wraps straight back to it. Either way Tab must never land on another square.
-    await expect
-      .poll(async () => {
-        const index = await readFocusedSquareIndex(page);
-        return index === null || index === 5;
-      })
-      .toBe(true);
-
+    await expect(probe).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expectFocusedSquare(page, 5);
   });
