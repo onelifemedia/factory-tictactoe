@@ -1,4 +1,4 @@
-// F-001, F-006, F-007, F-008: wires the pure game (src/game) to the page (src/ui).
+// F-001, F-006 to F-009: wires the pure game (src/game) to the page (src/ui).
 import "./styles.css";
 import {
   playHumanMove,
@@ -6,8 +6,9 @@ import {
   startGame,
   type GameStep,
 } from "./game/game";
+import { createAnnouncer } from "./ui/announcer";
 import { chooseFocusTarget, type FocusTarget } from "./ui/focus";
-import { statusText } from "./ui/messages";
+import { describeEvents, statusText } from "./ui/messages";
 import { createGameView } from "./ui/view";
 
 function findElement(id: string): HTMLElement {
@@ -19,6 +20,7 @@ function findElement(id: string): HTMLElement {
 }
 
 let current = resetToChoosing();
+const announcer = createAnnouncer(findElement("announcer"));
 
 const view = createGameView(
   {
@@ -48,6 +50,7 @@ function apply(
 ): void {
   current = step;
   view.render(step.state, statusText(step.state, step.events), focusTarget);
+  announcer.announce(describeEvents(step.events));
 }
 
 apply(current, null);
