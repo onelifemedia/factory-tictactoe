@@ -1,5 +1,6 @@
-// F-010 R-010: no horizontal scrolling and 44×44 CSS px targets at 320×568,
-// 390×844 and 1280×800 in every game state, and a board whose bounding box
+// F-010 R-010: no horizontal scrolling, and 44×44 CSS px targets that are visible
+// and inside the viewport, at 320×568, 390×844, 1280×800 and 640×400 (200% zoom)
+// in every game state, and a board whose bounding box
 // never moves between choose, play (taken message, longest status) and game
 // over at 320×568 and 1280×800.
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
@@ -31,6 +32,9 @@ interface BoardBox {
 
 interface TargetMeasurement {
   description: string;
+  isVisible: boolean;
+  left: number;
+  right: number;
   width: number;
   height: number;
 }
@@ -42,7 +46,20 @@ const LAYOUT_VIEWPORTS: readonly Viewport[] = [
   { width: 320, height: 568 },
   { width: 390, height: 844 },
   { width: 1280, height: 800 },
+  // 1280×800 at 200% zoom has the same CSS-pixel viewport (WCAG 1.4.4, 1.4.10;
+  // Codex F-010 review, missing evidence for 200%).
+  { width: 640, height: 400 },
 ];
+
+// The buttons each state must show besides the nine squares (Codex F-010
+// review C1: required targets are asserted, never skipped when hidden).
+const REQUIRED_BUTTONS_BY_STATE: Readonly<Record<string, readonly string[]>> = {
+  choice: ["You go first", "Computer goes first"],
+  "in play": [],
+  "computer won": ["Play again"],
+  draw: ["Play again"],
+};
+const SQUARE_COUNT = 9;
 
 const STABILITY_VIEWPORTS: readonly Viewport[] = [
   { width: 320, height: 568 },
@@ -53,12 +70,23 @@ function describeViewport(viewport: Viewport): string {
   return `${String(viewport.width)}×${String(viewport.height)}`;
 }
 
-async function measureVisibleTargets(page: Page): Promise<TargetMeasurement[]> {
+/** Every required target of the state: the nine squares plus its buttons. */
+async function measureRequiredTargets(
+  page: Page,
+  stateName: string,
+): Promise<TargetMeasurement[]> {
+  const requiredButtons = REQUIRED_BUTTONS_BY_STATE[stateName] ?? [];
+  const squares = locateBoard(page).locator(".square");
+  await expect(squares).toHaveCount(SQUARE_COUNT);
+  await expect(page.locator("button")).toHaveCount(
+    SQUARE_COUNT + requiredButtons.length,
+  );
+  const targets = [
+    ...(await squares.all()),
+    ...requiredButtons.map((name) => page.getByRole("button", { name })),
+  ];
   const measurements: TargetMeasurement[] = [];
-  for (const target of await page.locator(".square, button").all()) {
-    if (!(await target.isVisible())) {
-      continue;
-    }
+  for (const target of targets) {
     const box = await target.boundingBox();
     const accessibleName =
       (await target.getAttribute("aria-label")) ??
@@ -66,6 +94,9 @@ async function measureVisibleTargets(page: Page): Promise<TargetMeasurement[]> {
       "";
     measurements.push({
       description: accessibleName.trim(),
+      isVisible: await target.isVisible(),
+      left: box?.x ?? Number.NaN,
+      right: (box?.x ?? Number.NaN) + (box?.width ?? 0),
       width: box?.width ?? 0,
       height: box?.height ?? 0,
     });
@@ -151,8 +182,27 @@ test.describe("layout: no horizontal scroll and 44×44 targets (F-010 R-010)", (
           `scrollWidth ${String(pageWidths.scrollWidth)} vs innerWidth ${String(pageWidths.innerWidth)}`,
         ).toBeLessThanOrEqual(pageWidths.innerWidth);
 
-        const targetMeasurements = await measureVisibleTargets(page);
-        expect(targetMeasurements.length).toBeGreaterThan(0);
+        const targetMeasurements = await measureRequiredTargets(
+          page,
+          gameState.name,
+        );
+        const hiddenTargets = targetMeasurements.filter(
+          (measurement) => !measurement.isVisible,
+        );
+        expect(hiddenTargets, "required targets that are not visible").toEqual(
+          [],
+        );
+        // Codex F-010 review C2: no overflow alone does not prove a target is
+        // on screen; each must lie within the viewport horizontally.
+        const offscreenTargets = targetMeasurements.filter(
+          (measurement) =>
+            !(measurement.left >= 0) ||
+            !(measurement.right <= pageWidths.innerWidth),
+        );
+        expect(
+          offscreenTargets,
+          "targets outside the viewport horizontally",
+        ).toEqual([]);
         const undersizedTargets = targetMeasurements.filter(
           (measurement) =>
             measurement.width < MINIMUM_TARGET_PIXELS ||

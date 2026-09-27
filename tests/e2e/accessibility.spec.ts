@@ -56,6 +56,18 @@ test.describe("accessibility: WCAG 2.2 AA with axe-core (F-010 R-009)", () => {
         violationSummaries,
         `axe violations in the ${gameState.name} state`,
       ).toEqual([]);
+      // Codex F-010 review: zero violations is the automated gate, not full
+      // conformance. Rules axe could not decide ("incomplete") are recorded
+      // for the human QA pass instead of failing the build.
+      const incompleteRuleIds = axeResults.incomplete.map((rule) => rule.id);
+      testInfo.annotations.push({
+        type: "axe-incomplete",
+        description:
+          incompleteRuleIds.length > 0 ? incompleteRuleIds.join(", ") : "none",
+      });
+      console.info(
+        `axe incomplete (${testInfo.project.name}, ${gameState.name}): ${incompleteRuleIds.join(", ") || "none"}`,
+      );
     });
   }
 });
