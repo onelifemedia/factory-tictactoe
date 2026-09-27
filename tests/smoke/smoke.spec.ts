@@ -59,7 +59,9 @@ async function waitForBuildId(
   while (Date.now() < deadline) {
     try {
       if (isFirstAttempt) {
-        await page.goto("/");
+        // Relative to the configured URL, so a project site such as
+        // https://owner.github.io/factory-tictactoe/ keeps its path.
+        await page.goto("./");
       } else {
         await page.reload();
       }

@@ -2,7 +2,7 @@
 // for that exact SHA; otherwise it refuses (ADR-011).
 import { isRunAsCommandLine, readJsonInput } from "./read-json-input.mjs";
 
-/** @typedef {{ id: number; head_sha: string; status: string; conclusion: string | null }} CiRun */
+/** @typedef {{ id: number; head_sha: string; status: string; conclusion: string | null; event?: string; head_branch?: string }} CiRun */
 
 /**
  * @param {{ mainTipSha?: string; ciRuns?: CiRun[] }} input
@@ -12,7 +12,14 @@ export function resolveDispatchSha({ mainTipSha = "", ciRuns = [] }) {
   if (mainTipSha === "") {
     return { refusal: "Main's tip SHA is missing; refusing to deploy." };
   }
-  const runsForTip = ciRuns.filter((run) => run.head_sha === mainTipSha);
+  // Only main's own push CI counts; a pull request's run for the same commit
+  // does not (Codex F-013 review C2).
+  const runsForTip = ciRuns.filter(
+    (run) =>
+      run.head_sha === mainTipSha &&
+      (run.event ?? "push") === "push" &&
+      (run.head_branch ?? "main") === "main",
+  );
   if (runsForTip.some((run) => run.conclusion === "success")) {
     return { sha: mainTipSha };
   }

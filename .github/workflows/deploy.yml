@@ -53,8 +53,8 @@ jobs:
           set -euo pipefail
           main_tip=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            gh api "repos/$REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$main_tip&per_page=100" \
-              | jq --arg tip "$main_tip" '{mainTipSha: $tip, ciRuns: [.workflow_runs[] | {id, head_sha, status, conclusion}]}' \
+            gh api "repos/$REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$main_tip&event=push&branch=main&per_page=100" \
+              | jq --arg tip "$main_tip" '{mainTipSha: $tip, ciRuns: [.workflow_runs[] | {id, head_sha, status, conclusion, event, head_branch}]}' \
               > dispatch-input.json
             if ! node scripts/deploy/resolve-dispatch-sha.mjs dispatch-input.json > resolution.json; then
               jq -r .refusal resolution.json

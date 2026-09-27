@@ -4,7 +4,7 @@
 // (ADR-011). Job display names are frozen in deploy.yml for this.
 import { isRunAsCommandLine, readJsonInput } from "./read-json-input.mjs";
 
-/** @typedef {{ id: number; conclusion?: string | null }} DeployRun */
+/** @typedef {{ id: number; conclusion?: string | null; head_branch?: string; status?: string }} DeployRun */
 /** @typedef {{ name: string; conclusion: string | null }} DeployJob */
 
 /**
@@ -53,7 +53,13 @@ export async function findRollbackRun({
   for (let pageNumber = 1; ; pageNumber += 1) {
     const runs = await fetchRunsPage(pageNumber);
     for (const run of runs) {
+      // The history is listed unfiltered (filtered searches stop at 1,000
+      // results), so runs on other branches or still running are skipped here.
+      const isCompletedRunOnMain =
+        (run.head_branch ?? "main") === "main" &&
+        (run.status ?? "completed") === "completed";
       if (
+        isCompletedRunOnMain &&
         run.id !== currentRunId &&
         hasDeployedAndPassedSmoke(await fetchJobs(run.id))
       ) {

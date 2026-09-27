@@ -9,6 +9,18 @@ import { findRollbackRun } from "./select-rollback-run.mjs";
 const PAGE_SIZE = 100;
 
 /**
+ * The runs listing for one page, deliberately without branch/status/event
+ * filters: GitHub caps filtered searches at 1,000 results (Codex F-013 review
+ * C3). findRollbackRun filters to completed runs on main itself.
+ * @param {string} repository
+ * @param {number} pageNumber
+ * @returns {string}
+ */
+export function buildRunsEndpoint(repository, pageNumber) {
+  return `repos/${repository}/actions/workflows/deploy.yml/runs?per_page=${String(PAGE_SIZE)}&page=${String(pageNumber)}`;
+}
+
+/**
  * @param {string} endpoint
  * @returns {unknown}
  */
@@ -28,10 +40,8 @@ if (isRunAsCommandLine(import.meta.url)) {
   }
   const runId = await findRollbackRun({
     fetchRunsPage: (pageNumber) =>
-      /** @type {{ workflow_runs: { id: number }[] }} */ (
-        callGitHub(
-          `repos/${repository}/actions/workflows/deploy.yml/runs?branch=main&status=completed&per_page=${String(PAGE_SIZE)}&page=${String(pageNumber)}`,
-        )
+      /** @type {{ workflow_runs: { id: number; head_branch: string; status: string }[] }} */ (
+        callGitHub(buildRunsEndpoint(repository, pageNumber))
       ).workflow_runs,
     fetchJobs: (candidateRunId) =>
       /** @type {{ jobs: { name: string; conclusion: string | null }[] }} */ (
