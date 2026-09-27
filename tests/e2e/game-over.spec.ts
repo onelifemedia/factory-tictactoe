@@ -37,6 +37,22 @@ const ROW_WIN_MOVES: readonly MovePair[] = [
 ];
 const ROW_WIN_SQUARES: readonly number[] = [3, 4, 5];
 
+// Codex F-007 review, missing coverage: the other two strike directions, from
+// real games against the perfect opponent (human first).
+const COLUMN_WIN_MOVES: readonly MovePair[] = [
+  { humanSquare: 0, computerReply: 4 },
+  { humanSquare: 2, computerReply: 1 },
+  { humanSquare: 3, computerReply: 7 },
+];
+const COLUMN_WIN_SQUARES: readonly number[] = [1, 4, 7];
+const DIAGONAL_DOWN_WIN_MOVES: readonly MovePair[] = [
+  { humanSquare: 1, computerReply: 0 },
+  { humanSquare: 2, computerReply: 3 },
+  { humanSquare: 6, computerReply: 4 },
+  { humanSquare: 5, computerReply: 8 },
+];
+const DIAGONAL_DOWN_WIN_SQUARES: readonly number[] = [0, 4, 8];
+
 // 3b: human 0, 1, 6, 5, 8; the board fills with no winner.
 const DRAW_MOVES: readonly MovePair[] = [
   { humanSquare: 0, computerReply: 4 },
@@ -134,6 +150,7 @@ test.describe("game over: result, winning line and play again (F-007)", () => {
         expect(borderTopWidth, `square ${String(index)} border`).toBe(
           REGULAR_BORDER_WIDTH,
         );
+        expect(strikeContent, `square ${String(index)} strike`).toBe("none");
       }
     }
   });
@@ -145,6 +162,28 @@ test.describe("game over: result, winning line and play again (F-007)", () => {
 
     await expect(locateStatus(page)).toHaveText("Computer wins with row 2.");
     await expectWinningLine(page, ROW_WIN_SQUARES, "row");
+    await expectEverySquareNativelyDisabled(page);
+  });
+
+  test("a computer column win marks squares 1, 4 and 7 as column and names column 2 (F-007 R-004 R-005)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, COLUMN_WIN_MOVES);
+
+    await expect(locateStatus(page)).toHaveText("Computer wins with column 2.");
+    await expectWinningLine(page, COLUMN_WIN_SQUARES, "column");
+    await expectEverySquareNativelyDisabled(page);
+  });
+
+  test("a computer win on the diagonal from top left marks squares 0, 4 and 8 as diagonal-down (F-007 R-004 R-005)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, DIAGONAL_DOWN_WIN_MOVES);
+
+    await expect(locateStatus(page)).toHaveText(
+      "Computer wins with the diagonal from top left to bottom right.",
+    );
+    await expectWinningLine(page, DIAGONAL_DOWN_WIN_SQUARES, "diagonal-down");
     await expectEverySquareNativelyDisabled(page);
   });
 
