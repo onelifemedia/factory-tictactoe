@@ -11,16 +11,20 @@ export type BoardResult =
 const SQUARE_COUNT = 9;
 
 /** The 8 winning lines: rows, then columns, then the two diagonals. */
-export const LINES: readonly Line[] = Object.freeze([
-  [0, 1, 2],
-  [3, 4, 5],
-  [6, 7, 8],
-  [0, 3, 6],
-  [1, 4, 7],
-  [2, 5, 8],
-  [0, 4, 8],
-  [2, 4, 6],
-] as const);
+export const LINES: readonly Line[] = Object.freeze(
+  (
+    [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6],
+    ] as const
+  ).map((line): Line => Object.freeze(line)),
+);
 
 export function createEmptyBoard(): Board {
   return Array.from({ length: SQUARE_COUNT }, (): Cell => null);

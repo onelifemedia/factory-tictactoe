@@ -198,3 +198,22 @@ describe("emptySquares (F-002 R-001)", () => {
     expect(emptySquares(parseBoard(drawLayout))).toEqual([]);
   });
 });
+
+describe("F-002 review follow-ups (R-004)", () => {
+  it("reports a win, not a draw, when the winning move fills the board", () => {
+    const board = parseBoard("XXXOOXXOO");
+    expect(isFull(board)).toBe(true);
+    expect(evaluateResult(board)).toEqual({
+      kind: "win",
+      winner: "X",
+      line: [0, 1, 2],
+    });
+  });
+
+  it("freezes every winning line, not only the list", () => {
+    expect(Object.isFrozen(LINES)).toBe(true);
+    for (const line of LINES) {
+      expect(Object.isFrozen(line)).toBe(true);
+    }
+  });
+});
