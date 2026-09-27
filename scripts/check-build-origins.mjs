@@ -22,14 +22,18 @@ const REFERENCING_ATTRIBUTES = new Map([
   ["object", "data"],
   ["base", "href"],
 ]);
-const TAG_PATTERN = /<([a-z][a-z0-9-]*)\b([^>]*)>/gi;
+// Quote-aware: a ">" inside a quoted attribute value does not end the tag.
+const TAG_PATTERN = /<([a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
 const ATTRIBUTE_PATTERN =
   /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 const INLINE_SCRIPT_PATTERN = /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi;
 const INLINE_STYLE_PATTERN = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
 const JAVASCRIPT_SPECIFIER_PATTERN =
   /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+)(["'`])((?:\\.|(?!\1)[^\\])*)\1/g;
-const CSS_URL_PATTERN = /url\(\s*(["']?)((?:\\.|(?!\1)[^\\)])*)\1\s*\)/gi;
+// Quoted and unquoted url(...) are matched separately (Vite's minified CSS
+// drops the quotes).
+const CSS_URL_PATTERN =
+  /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^\s"'()\\])+))\s*\)/gi;
 const CSS_IMPORT_PATTERN = /@import\s+(["'])((?:\\.|(?!\1)[^\\])*)\1/gi;
 const NAMED_ENTITIES = new Map([
   ["amp", "&"],
@@ -199,10 +203,10 @@ function javaScriptSpecifiers(source) {
  */
 function cssReferences(source) {
   return [
-    ...capture(source, CSS_URL_PATTERN, 2).map((url) => ({
-      kind: "css-url",
-      url,
-    })),
+    ...[...source.matchAll(CSS_URL_PATTERN)].flatMap((match) => {
+      const url = match[1] ?? match[2] ?? match[3];
+      return url === undefined ? [] : [{ kind: "css-url", url }];
+    }),
     ...capture(source, CSS_IMPORT_PATTERN, 2).map((url) => ({
       kind: "css-import",
       url,
