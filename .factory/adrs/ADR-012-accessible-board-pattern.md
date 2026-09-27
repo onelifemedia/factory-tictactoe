@@ -21,4 +21,4 @@ We will render the board as `role="group"` containing nine native `<button>`s wi
 Positive: native activation for touch, mouse and keyboard; predictable semantics. Negative: the real screen-reader experience is not verified by the factory (human follow-up). No new dependencies.
 
 ## Second opinion
-Codex C7 (MEDIUM): `<noscript>` does not cover a failed bundle download. Accepted: a static fallback message is removed by `main.ts` on start (architecture §2). See `.factory/reviews/specification-reconciliation.md` (architecture review, with ADRs as context).
+Codex C7 (MEDIUM): `<noscript>` does not cover a failed bundle download. Accepted: a load-error message is shipped hidden and revealed by the script tag's `onerror` or a `main.ts` start failure (architecture §2, as revised after the design review, 2026-09-27). The design review also moved focus after a choice to the first empty square (architecture §5). See `.factory/reviews/specification-reconciliation.md` (architecture review, with ADRs as context).

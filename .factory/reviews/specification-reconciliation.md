@@ -40,3 +40,20 @@ No blocking findings remain open.
 
 ## Unavailable reviewers
 - Ollama qwen2.5:14b ran but did not follow the review format in either review. It is recorded as non-conforming. Consider switching the Ollama model before the planning review.
+
+## Rework 2026-09-27 (specification reopened after the design review)
+
+Approver chose option (a): update architecture §2 and §5 and add the board-stability check.
+
+| Change | Where |
+|---|---|
+| Load-error message ships `hidden`. It is revealed by an inline capture-phase `error` listener in `index.html` when the script fails to load, or by `main.ts` try/catch at start-up (then rethrown) | architecture §2, ADR-012, acceptance R-001 |
+| Focus after a choice goes to the first empty square in reading order | architecture §5, acceptance R-007 (new criterion) |
+| Board bounding box identical across states at 320×568 and 1280×800 (default text size) | acceptance R-010 (new criterion) |
+| Exact load-error copy; tested against the production build; forced start-up exception test | acceptance R-001 |
+
+Rework review: Codex, AGREE-WITH-CONCERNS (1 high, 1 missing).
+- **C1 (HIGH), accepted:** Vite's HTML build rewrites the module script tag and drops `onerror`. Replaced with an inline capture-phase `window` `error` listener, tested against `dist/`.
+- **Missing, accepted:** start-up exception handling was untested. Added a criterion that serves `index.html` without the board root so `main.ts` throws and the message appears.
+
+Rejected: none. No blocking findings remain open.
