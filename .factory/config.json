@@ -82,10 +82,10 @@
   "standards": {
     "$comment": "Engineering standards for the built project; see docs/engineering-standards.md there. Commands are filled in by F-001 once the toolchain exists. standards.sh install renders the git hooks from them; standards.sh check (and the implementation gate) verifies hooks, CI parity, naming rules and docs.",
     "commands": {
-      "format_check": "",
-      "lint": "",
-      "typecheck": "",
-      "test": ""
+      "format_check": "npm run format:check",
+      "lint": "npm run lint",
+      "typecheck": "npm run typecheck",
+      "test": "npm test"
     },
     "required_commands": [
       "format_check",

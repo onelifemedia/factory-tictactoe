@@ -1,0 +1,114 @@
+{
+  "$comment": "Merge routing (FEATURES.md H7, H8). Lives at .factory/merge-policy.json. merge-route.sh puts every PR in one band - trivial, standard, careful or blocked - and posts a label plus a review brief so each human review is short and goes to the right person. Humans merge (H4). The only exception is H8: in mode 'auto', trivial-band PRs get the host's native auto-merge, which still obeys branch protection. The factory never approves its own PR and never bypasses protection.",
+  "version": 2,
+
+  "mode": "advise",
+  "$mode": "off = do nothing (the kill switch). advise = label, brief and record only. auto = advise, plus native auto-merge for the trivial band; allowed only once 'promotion' is met.",
+
+  "evidence": {
+    "$comment": "Everything is computed by merge-route.sh from git and the CI provider at the PR's head commit. The only agent-supplied input is the review-result events recorded for that commit, or for an ancestor followed only by documentation changes (verdict and open findings), and those can only make a band stricter. A renamed file is checked under both paths. Missing, pending or unreadable evidence routes to careful. If the head commit changes, the band is recomputed before anything happens.",
+    "diff": "git diff <base>...<head> --find-renames",
+    "ci": "required checks on <head> from the provider (gh pr checks)",
+    "factory": "feature metadata, plus review-result events whose revision is <head>"
+  },
+
+  "blocked_if": {
+    "$comment": "Nobody merges until fixed.",
+    "ci_failed": true,
+    "open_finding_severities": ["CRITICAL"]
+  },
+
+  "careful_if": {
+    "$comment": "Any match: review by a code owner (reviewer tier 'owner'). Globs are anchored at the repository root (use **/ for any depth) and matched against every changed path, both sides of a rename. .factory/*.json covers config, this policy, intent, plan and licenses; feature notes and reviews under .factory/ are Markdown and count as docs.",
+    "paths": [
+      ".factory/*.json", ".githooks/**", ".github/**", ".gitlab-ci.yml", ".circleci/**", ".mcp.json",
+      "CLAUDE.md", "docs/engineering-standards.md",
+      "**/migrations/**", "**/*.sql",
+      "**/auth/**", "**/auth.*", "**/*.auth.*", "**/session/**", "**/permissions/**",
+      "**/payments/**", "**/billing/**",
+      "**/*secret*", "**/*credential*", "**/.env*", "**/*.pem", "**/*.key",
+      "infra/**", "**/*.tf", "**/Dockerfile", "**/docker-compose*.yml", "**/k8s/**", "**/helm/**",
+      "**/package.json", "**/package-lock.json", "**/pnpm-lock.yaml", "**/yarn.lock",
+      "**/pyproject.toml", "**/requirements*.txt", "**/poetry.lock", "**/uv.lock",
+      "**/go.mod", "**/go.sum", "**/Cargo.toml", "**/Cargo.lock", "**/Package.swift", "**/Package.resolved",
+      "**/eslint.config.*", "**/.eslintrc*", "**/tsconfig*.json", "**/.prettierrc*", "**/ruff.toml",
+      "**/.swiftlint.yml", "**/.golangci.*", "**/clippy.toml"
+    ],
+    "feature_flags": ["needs_migration", "needs_feature_flag"],
+    "touches_must_not_break": true,
+    "open_finding_severities": ["HIGH"],
+    "reviewer_verdicts": ["DISAGREE"],
+    "code_change_without_a_reviewer_run": true,
+    "deleted_or_weakened_tests": true,
+    "unknown_evidence": true,
+    "max_lines_changed": 800
+  },
+
+  "trivial_if": {
+    "$comment": "ALL must hold, and nothing above matched. Categories are deliberately mechanical: every changed path must fall in an enabled category, so no judgment (human or AI) is needed to put a PR here.",
+    "categories": {
+      "docs": {
+        "enabled": true,
+        "paths": ["**/*.md", "**/*.mdx", "**/*.rst", "**/*.txt", "docs/**"]
+      },
+      "tests_additive": {
+        "$comment": "New test files, or lines added to existing ones with none removed or changed: cannot weaken an existing assertion.",
+        "enabled": true,
+        "paths": ["**/tests/**", "**/__tests__/**", "**/test_*.py", "**/*_test.py", "**/*_test.go", "**/*.test.*", "**/*.spec.*", "**/*Tests.swift"]
+      },
+      "copy": {
+        "$comment": "Translation and UI string files. Off by default: wording can carry legal or pricing meaning.",
+        "enabled": false,
+        "paths": ["**/locales/**", "**/i18n/**", "**/*.po", "**/*.xliff"]
+      }
+    },
+    "ci_passed_at_head": true,
+    "max_files_changed": 20,
+    "max_lines_changed": 400
+  },
+
+  "standard": {
+    "$comment": "Everything else: one review by any engineer (reviewer tier 'any'), guided by the brief."
+  },
+
+  "reviewer_tiers": {
+    "$comment": "Who a band is routed to. 'owner' uses CODEOWNERS when present. Map to GitHub teams or people.",
+    "trivial": "any",
+    "standard": "any",
+    "careful": "owner"
+  },
+
+  "external_scorers": {
+    "$comment": "Optional AI scores (e.g. Jev from the MCP catalog), passed to merge-route.sh with --scores. They can only move a PR to a stricter band, never to a more lenient one; missing scores change nothing.",
+    "jev": {
+      "enabled": false,
+      "raise_to_careful_below": { "security": 6, "correctness": 6, "tests": 5 },
+      "raise_to_blocked_below": { "security": 3 }
+    }
+  },
+
+  "review_brief": {
+    "$comment": "Posted as one PR comment and refreshed on every push. The point is to make review fast, not to replace it.",
+    "sections": [
+      "band and every rule that placed it there",
+      "what changed, per feature, with requirement IDs",
+      "where to look: the few files and lines carrying the risk",
+      "evidence at the head commit: CI checks, tests added, reviewer verdicts, open findings, licenses",
+      "what the factory did not check"
+    ]
+  },
+
+  "promotion": {
+    "$comment": "mode 'auto' is refused until 'merge-route.sh report' shows all of these over PRs routed in advise mode. A trivial-band PR counts as agreed when a human approved it without requesting changes.",
+    "minimum_routed_prs": 30,
+    "minimum_trivial_prs": 10,
+    "minimum_trivial_agreement": 0.95,
+    "maximum_reverts_of_trivial_prs": 0
+  },
+
+  "output": {
+    "label_prefix": "merge:",
+    "comment_on_pr": true,
+    "record_to": ".factory/merge-decisions.jsonl"
+  }
+}

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# software-factory: managed hook. Regenerate with standards.sh install;
+# change the commands in .factory/config.json -> standards.commands.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+run() { echo "pre-push: $1" >&2; bash -c "$2"; }
+run format_check 'npm run format:check'
+run lint 'npm run lint'
+run typecheck 'npm run typecheck'
+run test 'npm test'
