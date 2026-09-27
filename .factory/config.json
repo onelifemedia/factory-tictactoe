@@ -29,7 +29,7 @@
     {
       "id": "ollama",
       "label": "Local LLM (Ollama)",
-      "enabled": true,
+      "enabled": false,
       "kind": "ollama",
       "model": "qwen2.5:14b",
       "timeout_seconds": 300
