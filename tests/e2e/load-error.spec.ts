@@ -10,6 +10,7 @@ const BOARD_ELEMENT_PATTERN = /<div\b[^>]*\bid="board"[^>]*><\/div>/;
 
 interface LoadErrorProbeWindow {
   loadErrorWasShown?: boolean;
+  isLoadErrorObserverInstalled?: boolean;
 }
 
 function locateLoadError(page: Page) {
@@ -33,22 +34,48 @@ test.describe("load error fallback (F-011 R-001)", () => {
   test("never shows the load-error message during a normal load, renders the game, and keeps the message hidden (F-011 R-001)", async ({
     page,
   }) => {
+    // Codex F-011 review C1: fail on any page error, and prove the observer was
+    // really installed, so this test cannot pass without observing anything.
+    const pageErrorMessages: string[] = [];
+    page.on("pageerror", (pageError) => {
+      pageErrorMessages.push(pageError.message);
+    });
     await page.addInitScript(() => {
       const probeWindow = window as unknown as LoadErrorProbeWindow;
       probeWindow.loadErrorWasShown = false;
+      probeWindow.isLoadErrorObserverInstalled = false;
       const recordIfLoadErrorShown = (): void => {
         const loadError = document.getElementById("load-error");
         if (loadError && !loadError.hasAttribute("hidden")) {
           probeWindow.loadErrorWasShown = true;
         }
       };
-      const observer = new MutationObserver(recordIfLoadErrorShown);
-      observer.observe(document.documentElement, {
+      // Records arrive in batches, so a reveal-then-hide in one task would leave
+      // the element hidden by the time the callback runs. Each attribute record
+      // is inspected instead: a `hidden` record whose old value is not null
+      // means the attribute was removed (or changed) at some point.
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          if (
+            mutation.type === "attributes" &&
+            mutation.target instanceof Element &&
+            mutation.target.id === "load-error" &&
+            mutation.oldValue !== null
+          ) {
+            probeWindow.loadErrorWasShown = true;
+          }
+        }
+        recordIfLoadErrorShown();
+      });
+      // The document exists when init scripts run; documentElement may not.
+      observer.observe(document, {
         childList: true,
         subtree: true,
         attributes: true,
+        attributeOldValue: true,
         attributeFilter: ["hidden"],
       });
+      probeWindow.isLoadErrorObserverInstalled = true;
       document.addEventListener("DOMContentLoaded", recordIfLoadErrorShown);
     });
 
@@ -60,6 +87,15 @@ test.describe("load error fallback (F-011 R-001)", () => {
     await expect(locateLoadError(page)).toHaveAttribute("hidden", "");
     await expect(locateLoadError(page)).toHaveText(LOAD_ERROR_TEXT);
     await expect(locateLoadError(page)).toBeHidden();
+    const isObserverInstalled = await page.evaluate(
+      () =>
+        (window as unknown as LoadErrorProbeWindow)
+          .isLoadErrorObserverInstalled,
+    );
+    expect(isObserverInstalled, "the load-error observer was installed").toBe(
+      true,
+    );
+    expect(pageErrorMessages, "page errors during a normal load").toEqual([]);
     const wasLoadErrorShown = await page.evaluate(
       () => (window as unknown as LoadErrorProbeWindow).loadErrorWasShown,
     );
