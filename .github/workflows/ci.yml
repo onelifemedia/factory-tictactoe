@@ -31,6 +31,13 @@ jobs:
         run: npm run check:size
       - name: No references to other origins (R-012)
         run: npm run check:origins
+      # F-013: lint every workflow. actionlint 1.7.12 does not know GitHub's
+      # concurrency `queue` key yet, so exactly that diagnostic is ignored;
+      # tests/unit/deploy-workflow.test.ts checks the concurrency block itself.
+      - name: Lint workflows (actionlint 1.7.12)
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color -ignore unexpected.key..queue..for..concurrency..section
 
   e2e:
     runs-on: ubuntu-latest
@@ -43,6 +50,12 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run test:e2e
+      # F-013: the smoke test itself, against a local server (right, wrong and
+      # late build id). Slow, so it runs once here instead of in npm test.
+      - name: Smoke-test harness
+        env:
+          RUN_SMOKE_HARNESS: "1"
+        run: npx vitest run tests/unit/smoke-harness.test.ts
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
