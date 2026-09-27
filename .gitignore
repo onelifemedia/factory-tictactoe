@@ -8,3 +8,9 @@
 .factory/checkpoints/
 .factory/.state-*.tmp
 .factory/state.v1.backup.json
+
+# Build and test output
+node_modules/
+dist/
+playwright-report/
+test-results/
