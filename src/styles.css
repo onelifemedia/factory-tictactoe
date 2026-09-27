@@ -252,3 +252,12 @@ body {
   border-radius: 50%;
   padding: 0 0.08em;
 }
+
+/* F-008: keyboard hint shown in the action area during play. */
+.hint {
+  margin: 0;
+  font-size: var(--font-size-small);
+  line-height: var(--font-line-small);
+  color: var(--color-text-muted);
+  text-align: center;
+}
