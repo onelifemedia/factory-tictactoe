@@ -1,0 +1,10 @@
+
+# software factory: runtime files
+.factory/state.json
+.factory/escalations/
+.factory/audit.jsonl
+.factory/cost.json
+.factory/merge-decisions.jsonl
+.factory/checkpoints/
+.factory/.state-*.tmp
+.factory/state.v1.backup.json

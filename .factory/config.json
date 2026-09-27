@@ -1,0 +1,160 @@
+{
+  "$comment": "Factory configuration. Lives at .factory/config.json in the target repo. Edit freely.",
+  "version": 1,
+  "review": {
+    "$comment": "How second opinions are used. 'advisory' = reviewers critique, Claude reconciles, nothing blocks. 'blocking' = a CRITICAL finding pauses the pipeline and escalates.",
+    "mode": "advisory",
+    "per_phase": {
+      "specification": "advisory",
+      "planning": "advisory",
+      "implementation": "advisory",
+      "qa": "advisory"
+    },
+    "auto_after": [
+      "prd",
+      "architecture",
+      "plan",
+      "feature"
+    ]
+  },
+  "reviewers": [
+    {
+      "id": "codex",
+      "label": "OpenAI Codex CLI",
+      "enabled": true,
+      "kind": "codex",
+      "model": "",
+      "timeout_seconds": 300
+    },
+    {
+      "id": "ollama",
+      "label": "Local LLM (Ollama)",
+      "enabled": true,
+      "kind": "ollama",
+      "model": "qwen2.5:14b",
+      "timeout_seconds": 300
+    }
+  ],
+  "budget": {
+    "$comment": "USD. 0 = unbounded (you will be warned). soft_pct warns, hard_pct pauses.",
+    "total_usd": 150,
+    "soft_pct": 80,
+    "hard_pct": 100,
+    "prices_per_million": {
+      "$comment": "Approximate list prices used to convert transcript token counts into dollars. Update as needed.",
+      "default": {
+        "input": 3.0,
+        "output": 15.0,
+        "cache_read": 0.3,
+        "cache_write": 3.75
+      },
+      "opus": {
+        "input": 15.0,
+        "output": 75.0,
+        "cache_read": 1.5,
+        "cache_write": 18.75
+      },
+      "sonnet": {
+        "input": 3.0,
+        "output": 15.0,
+        "cache_read": 0.3,
+        "cache_write": 3.75
+      },
+      "haiku": {
+        "input": 0.8,
+        "output": 4.0,
+        "cache_read": 0.08,
+        "cache_write": 1.0
+      }
+    }
+  },
+  "implementation": {
+    "max_attempts_per_feature": 3,
+    "max_review_rounds": 2,
+    "require_tests_first": true,
+    "run_reviewers_on_each_feature": true,
+    "$pull_requests": "per_feature = one pull request per feature, stacked in plan order (pr-stack.sh); single = one pull request from an integration branch.",
+    "pull_requests": "per_feature",
+    "main_branch": "",
+    "branch_per_feature": true,
+    "branch_prefix": "factory/"
+  },
+  "standards": {
+    "$comment": "Engineering standards for the built project; see docs/engineering-standards.md there. Commands are filled in by F-001 once the toolchain exists. standards.sh install renders the git hooks from them; standards.sh check (and the implementation gate) verifies hooks, CI parity, naming rules and docs.",
+    "commands": {
+      "format_check": "",
+      "lint": "",
+      "typecheck": "",
+      "test": ""
+    },
+    "required_commands": [
+      "format_check",
+      "lint",
+      "test"
+    ],
+    "hooks": {
+      "path": ".githooks",
+      "pre-commit": [
+        "format_check"
+      ],
+      "pre-push": [
+        "format_check",
+        "lint",
+        "typecheck",
+        "test"
+      ]
+    },
+    "naming": {
+      "$comment": "Leave waiver empty unless the language has no supported naming linter; then name the ADR that records the equivalent.",
+      "waiver": ""
+    }
+  },
+  "governance": {
+    "humans_merge": true,
+    "no_orphan_code": true,
+    "license_policy": {
+      "$comment": "SPDX IDs. validate.sh licenses: deny blocks, ask and unlisted licenses need a human decision recorded in license_exceptions.",
+      "allow": [
+        "MIT",
+        "MIT-0",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "ISC",
+        "0BSD",
+        "Unlicense",
+        "MPL-2.0",
+        "CC0-1.0",
+        "CC-BY-4.0",
+        "BlueOak-1.0.0",
+        "Python-2.0",
+        "PSF-2.0",
+        "Zlib",
+        "BSL-1.0",
+        "Unicode-3.0",
+        "Unicode-DFS-2016"
+      ],
+      "deny": [
+        "AGPL-3.0",
+        "SSPL-1.0",
+        "BUSL-1.1"
+      ],
+      "ask": [
+        "GPL-2.0",
+        "GPL-3.0",
+        "LGPL-2.1",
+        "LGPL-3.0",
+        "CC-BY-SA-4.0"
+      ]
+    },
+    "license_exceptions": []
+  },
+  "metrics": {
+    "$comment": "Targets the retro compares against (metrics.sh). Remove a target to stop tracking it.",
+    "targets": {
+      "first_run_pass_rate": 0.5,
+      "average_attempts_per_feature": 1.0,
+      "interventions_per_feature": 1.0
+    }
+  }
+}

@@ -1,0 +1,201 @@
+{
+  "version": 2,
+  "captured_at": "2026-09-27T20:20:18Z",
+  "mode": "new",
+  "project_name": "factory-tictactoe",
+  "problem": {
+    "statement": "Casual players who want a quick game of tic-tac-toe in a browser have to put up with ad-heavy, slow game sites that are awkward to use with a keyboard or screen reader, because those sites are built to maximise ad impressions rather than to play well.",
+    "severity": "low",
+    "current_solutions": "Ad-supported browser game sites and app-store apps.",
+    "gaps": "Ads, slow loads, sign-up prompts, poor keyboard and screen-reader support.",
+    "cost_of_inaction": "Low for players; for the team, the Software Factory lacks an end-to-end live test with every phase exercised."
+  },
+  "user": {
+    "primary_persona": "Casual novice player with about two minutes to spare on a phone (touch) or laptop (mouse/trackpad), wanting a quick game with zero friction.",
+    "day_in_the_life": "Waiting in a queue or between tasks, opens a link, plays one or two games in under two minutes, closes the tab. Today they hit ads, slow loads and sign-up prompts first.",
+    "skill_level": "novice"
+  },
+  "success": {
+    "thirty_day_goal": "Done checklist: (1) the live GitHub Pages URL loads; (2) the exhaustive never-lose test passes in CI; (3) zero axe-core violations; (4) JavaScript bundle under 50 KB gzipped; (5) a full game completes using the keyboard only (Playwright).",
+    "primary_metric": "Computer losses across every reachable game position, verified by an exhaustive automated test",
+    "target_value": "0"
+  },
+  "scope": {
+    "mvp": [
+      "Play a full game against a perfect (never-losing) computer: legal moves only, win/draw detection, winning line highlighted, result message, play again. Before each game the player chooses who moves first (you or the computer). The human is always X and the computer always O; when the computer starts, O opens (intended, not a bug).",
+      "Full keyboard and screen-reader play: arrow/tab navigation, Enter/Space to place, live announcements of moves and results (WCAG 2.2 AA).",
+      "Responsive layout usable by touch on phones and by mouse on laptops."
+    ],
+    "explicitly_out_of_scope": [
+      "Easier modes or difficulty levels",
+      "Hot-seat two-player mode",
+      "Win/draw tally",
+      "Choosing X or O (picking a symbol)",
+      "Sound",
+      "Animations beyond basics",
+      "Themes / dark mode",
+      "PWA / offline install",
+      "Translations",
+      "Accounts",
+      "Persistence",
+      "Bigger boards",
+      "Analytics",
+      "Ads",
+      "Real-device iOS/Android testing (this build)",
+      "Screen readers other than VoiceOver; any manual screen-reader pass by the factory",
+      "Undo / take-back",
+      "Move history",
+      "Rules / help page",
+      "Custom domain"
+    ],
+    "complexity_ceiling": "Anything that needs a server or storage."
+  },
+  "change": {
+    "summary": "n/a",
+    "touches": [],
+    "must_not_break": []
+  },
+  "technology": {
+    "committed": [
+      "GitHub Pages hosting",
+      "Static site, no backend",
+      "npm",
+      "Node 22 (pinned in .nvmrc and package.json engines)",
+      "GitHub (repo, Actions, Pages)"
+    ],
+    "flexible": [],
+    "excluded": [
+      "Analytics / tracking",
+      "Ads",
+      "Database",
+      "Auth",
+      "External services / APIs",
+      "Server-side code or storage"
+    ],
+    "decisions": [
+      {
+        "choice": "Vanilla TypeScript (strict) + Vite",
+        "alternatives": [
+          "Preact + Vite",
+          "Svelte + Vite"
+        ],
+        "why": "Smallest bundle, no framework churn; pure game logic separate from a thin DOM layer for a 9-cell UI."
+      },
+      {
+        "choice": "GitHub Pages via GitHub Actions",
+        "alternatives": [
+          "Netlify",
+          "Vercel"
+        ],
+        "why": "Committed by the human; free static hosting next to the repo, no extra accounts."
+      },
+      {
+        "choice": "npm + Node 22",
+        "alternatives": [
+          "pnpm",
+          "Node 24"
+        ],
+        "why": "Human's choice; pinned in .nvmrc and engines for reproducible CI."
+      },
+      {
+        "choice": "Prettier (formatter)",
+        "alternatives": [
+          "Biome",
+          "dprint"
+        ],
+        "why": "De facto standard, zero-config."
+      },
+      {
+        "choice": "ESLint + typescript-eslint + eslint-plugin-unicorn (linter, factory naming rules)",
+        "alternatives": [
+          "Biome lint",
+          "oxlint"
+        ],
+        "why": "Only option carrying the factory's TypeScript naming recipe (standards \u00a76)."
+      },
+      {
+        "choice": "tsc --strict (type checker)",
+        "alternatives": [
+          "none"
+        ],
+        "why": "Built into TypeScript."
+      },
+      {
+        "choice": "Vitest (unit tests, incl. exhaustive never-lose test)",
+        "alternatives": [
+          "Jest",
+          "node:test"
+        ],
+        "why": "Native to Vite, fast, TypeScript without config."
+      },
+      {
+        "choice": "Playwright + @axe-core/playwright (e2e, keyboard, accessibility)",
+        "alternatives": [
+          "Cypress + cypress-axe",
+          "Vitest browser mode"
+        ],
+        "why": "Real-browser keyboard/touch tests and axe-core zero-violation checks in CI."
+      }
+    ],
+    "license_policy": "default"
+  },
+  "constraints": {
+    "quality_standards": [
+      "WCAG 2.2 AA (hard constraint, not a trade-off)",
+      "Full keyboard play",
+      "Screen-reader announcements of moves and game results",
+      "Zero axe-core violations",
+      "Performance: JavaScript bundle under 50 KB gzipped",
+      "No analytics, no ads, no sign-up, no install",
+      "Visual: plain, high-contrast, system font stack; no brand",
+      "Browser support: current and previous versions of Chrome, Firefox, Safari and Edge, plus iOS Safari and Android Chrome",
+      "Accessibility verification (automated): Playwright on Chromium, Firefox and WebKit plus phone-viewport emulation; keyboard-only full game; zero axe-core violations; exact live-region announcement text asserted in tests",
+      "No manual screen-reader pass by the factory (an agent cannot listen to one). The QA report lists 'real screen-reader pass (VoiceOver) and real-device iOS/Android check' as NOT PERFORMED - human follow-up"
+    ],
+    "compliance": [
+      "None applicable - no personal data, cookies, storage or tracking"
+    ],
+    "stakeholders": [
+      {
+        "name": "Claude (test operator, authorized by Jim Gibbs)",
+        "role": "approver"
+      }
+    ]
+  },
+  "budget": {
+    "total_usd": 150,
+    "unbounded_acknowledged": false,
+    "alert_channel": "in-session",
+    "cost_of_problem": "Low - no revenue at stake; value is a playable ad-free game and a validated factory pipeline."
+  },
+  "operations": {
+    "uptime_target": "Whatever GitHub Pages provides (no separate SLA)",
+    "on_call": "Nobody - acknowledged. Deploy or smoke-test failures notify the repo owner via the GitHub Actions failure email.",
+    "auto_rollback": true,
+    "incident_plan": "Minimal automatic rollback: a post-deploy smoke test loads the live URL and plays one move; if it fails, the workflow redeploys the previous successful Pages artifact - nothing more. The repo owner is notified by the Actions failure email, then reverts the offending merge and redeploys."
+  },
+  "design": {
+    "has_ui": true,
+    "source": "factory",
+    "brand": "none - plain, simple, high-contrast, system font stack"
+  },
+  "review": {
+    "second_opinion": true,
+    "mode": "advisory"
+  },
+  "context": {
+    "multi_session": true,
+    "remember": [
+      "Dual purpose: real playable game (defines the product) AND a full live test of the Software Factory - exercise every phase properly, no shortcuts.",
+      "Unbeatable is a correctness bar: the computer must never lose, verified exhaustively over all reachable game states.",
+      "Keyboard/screen-reader users are a hard constraint (WCAG 2.2 AA in MVP), not a secondary persona. Primary persona decides other trade-offs.",
+      "Use the gh CLI (already authenticated, repo+workflow scopes) for all GitHub work; the GitHub MCP server is optional and not configured.",
+      "All gate approvals and final product approval are recorded --by 'Claude (test operator, authorized by Jim Gibbs)', never as Jim. No advisors.",
+      "Spec must state explicitly: human always X, computer always O; O opens when the player lets the computer start. The exhaustive never-lose test covers both starting sides.",
+      "Never claim a screen-reader or real-device check was done: assert announcement text in Playwright; the QA report marks the VoiceOver and real-device checks as not performed (human follow-up).",
+      "By design a novice can never win: the best outcome for the player is a draw. This is intended, not a defect.",
+      "Automatic rollback stays minimal: redeploy the previous successful Pages artifact when the post-deploy smoke test fails, nothing more."
+    ]
+  },
+  "next_step": "specification"
+}
