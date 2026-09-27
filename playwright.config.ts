@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: {
     command: `npm run build && npm run preview -- --port ${String(previewPort)} --strictPort`,
     url: `http://localhost:${String(previewPort)}`,
-    reuseExistingServer: !isContinuousIntegration,
+    reuseExistingServer: false,
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } },
