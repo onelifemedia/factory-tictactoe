@@ -59,6 +59,21 @@ test.describe("accessibility: WCAG 2.2 AA with axe-core (F-010 R-009)", () => {
       // Codex F-010 review: zero violations is the automated gate, not full
       // conformance. Rules axe could not decide ("incomplete") are recorded
       // for the human QA pass instead of failing the build.
+      await testInfo.attach(`axe-incomplete-${gameState.name}.json`, {
+        body: JSON.stringify(
+          axeResults.incomplete.map((rule) => ({
+            id: rule.id,
+            help: rule.help,
+            nodes: rule.nodes.map((node) => ({
+              target: node.target.join(" "),
+              reason: node.failureSummary ?? "",
+            })),
+          })),
+          null,
+          2,
+        ),
+        contentType: "application/json",
+      });
       const incompleteRuleIds = axeResults.incomplete.map((rule) => rule.id);
       testInfo.annotations.push({
         type: "axe-incomplete",

@@ -94,7 +94,25 @@ async function measureRequiredTargets(
       "";
     measurements.push({
       description: accessibleName.trim(),
-      isVisible: await target.isVisible(),
+      // Playwright's isVisible() accepts opacity 0 (Codex F-010 round 2 C1),
+      // so the effective opacity along the ancestor chain is checked too.
+      isVisible:
+        (await target.isVisible()) &&
+        (await target.evaluate((element) => {
+          let opacity = 1;
+          for (
+            let current: Element | null = element;
+            current !== null;
+            current = current.parentElement
+          ) {
+            const style = getComputedStyle(current);
+            if (style.visibility === "hidden" || style.display === "none") {
+              return false;
+            }
+            opacity *= Number(style.opacity);
+          }
+          return opacity > 0;
+        })),
       left: box?.x ?? Number.NaN,
       right: (box?.x ?? Number.NaN) + (box?.width ?? 0),
       width: box?.width ?? 0,
@@ -231,6 +249,60 @@ test.describe("layout: the board never moves (F-010 R-010)", () => {
       for (const [stepName, boardBox] of boardBoxesByStep) {
         expectSameBoardBox(boardBox, choiceBox, stepName);
       }
+    });
+  }
+});
+
+// Codex F-010 round 2 C2: WCAG 1.4.4 is about enlarged *text*. All type sizes
+// are in rem, so a 200% root font size is the text-only zoom equivalent. The
+// longest messages must stay unclipped and every control usable.
+test.describe("layout: text enlarged to 200% (F-010 R-010, WCAG 1.4.4)", () => {
+  for (const gameState of GAME_STATES) {
+    test(`at 1280×800 with 200% text the ${gameState.name} state keeps all text readable and every target visible and on screen (F-010 R-010)`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await page.goto("/");
+      await page.addStyleTag({ content: "html { font-size: 200%; }" });
+      await gameState.reach(page, testInfo);
+
+      const textFits = await page.evaluate(() =>
+        [
+          ...document.querySelectorAll<HTMLElement>(
+            ".title, .status, .hint, .button",
+          ),
+        ]
+          .filter((element) => element.offsetParent !== null)
+          .map((element) => ({
+            text: element.textContent ?? "",
+            isClipped:
+              element.scrollWidth > element.clientWidth + 1 ||
+              element.scrollHeight > element.clientHeight + 1,
+          })),
+      );
+      expect(
+        textFits.filter((entry) => entry.isClipped),
+        "clipped text at 200%",
+      ).toEqual([]);
+
+      const pageWidths = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }));
+      expect(pageWidths.scrollWidth).toBeLessThanOrEqual(pageWidths.innerWidth);
+      const targetMeasurements = await measureRequiredTargets(
+        page,
+        gameState.name,
+      );
+      expect(
+        targetMeasurements.filter(
+          (measurement) =>
+            !measurement.isVisible ||
+            !(measurement.left >= 0) ||
+            !(measurement.right <= pageWidths.innerWidth),
+        ),
+        "targets hidden or off screen at 200% text",
+      ).toEqual([]);
     });
   }
 });
