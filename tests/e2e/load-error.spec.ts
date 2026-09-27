@@ -114,7 +114,11 @@ test.describe("JavaScript turned off (F-011 R-001)", () => {
     await page.goto("/");
     await page.waitForLoadState("load");
 
-    await expect(page.getByText(NOSCRIPT_TEXT)).toBeVisible();
+    // Playwright's text engine skips <noscript> content, so the paragraph is
+    // located by CSS and its visibility and text are asserted directly.
+    const noscriptMessage = page.locator("noscript .fallback");
+    await expect(noscriptMessage).toBeVisible();
+    await expect(noscriptMessage).toHaveText(NOSCRIPT_TEXT);
     await expect(locateLoadError(page)).toHaveCount(1);
     await expect(locateLoadError(page)).toBeHidden();
   });
