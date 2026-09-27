@@ -1,0 +1,87 @@
+/* F-001: design tokens from .factory/design/tokens.json (checked by tests/unit/tokens.test.ts). */
+:root {
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f2f2f2;
+  --color-text: #111111;
+  --color-text-muted: #3d3d3d;
+  --color-primary: #0b3d91;
+  --color-on-primary: #ffffff;
+  --color-border: #3d3d3d;
+  --color-border-disabled: #595959;
+  --color-focus: #0b3d91;
+  --color-win-surface: #fff3b0;
+  --color-win-marker: #111111;
+  --font-family:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-size-small: 0.875rem;
+  --font-size-body: 1rem;
+  --font-size-status: 1.125rem;
+  --font-size-display: 1.75rem;
+  --font-size-mark: clamp(2rem, 18cqi, 4rem);
+  --font-line-small: 1.4;
+  --font-line-body: 1.5;
+  --font-line-status: 1.4;
+  --font-line-display: 1.2;
+  --font-line-mark: 1;
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --size-page-max: 28rem;
+  --size-board-max: min(100%, 360px, 50svh);
+  --size-square-gap: 8px;
+  --size-border: 2px;
+  --size-border-win: 4px;
+  --size-win-line: 6px;
+  --size-status-min-lines-narrow: 3;
+  --size-status-min-lines-wide: 2;
+  --size-actions-min-height-narrow: calc(2 * 44px + 12px);
+  --size-actions-min-height-wide: 44px;
+  --a11y-min-target: 44px;
+  --a11y-focus-ring: 3px solid var(--color-focus);
+  --a11y-focus-offset: 2px;
+  --motion-fast: 0ms;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: var(--font-line-body);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.page {
+  max-width: var(--size-page-max);
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 480px) {
+  .page {
+    padding: var(--space-5);
+  }
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-display);
+  line-height: var(--font-line-display);
+  font-weight: var(--font-weight-bold);
+}
