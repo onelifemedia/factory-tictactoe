@@ -62,7 +62,7 @@ const DROP_LANDED_MILLISECONDS = 279;
 
 interface MotionProbeWindow {
   motionFreeze?: Promise<void>;
-  animationCountAtDeadline?: Promise<number>;
+  animationEndTimes?: Promise<number[]>;
   keyboardFreeze?: Promise<{ transform: string; transitionDuration: string }>;
   frameSamples?: Promise<FrameSample[]>;
 }
@@ -96,7 +96,9 @@ const DROP_DURATION_MILLISECONDS = 280;
 const LIFT_DURATION_MILLISECONDS = 240;
 const LIFT_DELAY_MILLISECONDS = 280;
 const PRESS_DURATION_MILLISECONDS = 80;
-const NATURAL_COMPLETION_WAIT_MILLISECONDS = 600;
+// A winning move's motion settles by 520 ms: drop 280 ms, then lift 240 ms
+// (design-system.md section 4).
+const SETTLED_BY_MILLISECONDS = 520;
 const DROP_START_TRANSLATE_Y_PIXELS = -22;
 const DROP_START_SCALE = 1.15;
 const DROP_EASING = [0.3, 1.6, 0.5, 1];
@@ -813,38 +815,58 @@ test.describe("drop, lift and timing with no motion preference (F-015)", () => {
     );
   });
 
-  test("every animation has finished 600 ms after the winning move (F-015 R-013, criterion 3)", async ({
+  test("every animation of the winning move is timed to settle by 520 ms, and none remain once they finish (F-015 R-013, criterion 3)", async ({
     page,
   }, testInfo) => {
     await playUpToWinningMove(page, testInfo);
-    // The deadline is measured inside the page from the click itself, so time
-    // spent in Playwright round trips cannot hide an overrun (Codex F-015 C1).
-    await page.evaluate((deadlineMilliseconds) => {
+    // Measured by each animation's own timing (delay + duration), read in the
+    // first frame after the click: a slower design fails, but a loaded machine
+    // that starts the animations a few frames late does not (Codex F-015 C1;
+    // QA: the earlier wall-clock deadline flaked on Firefox, CR-12).
+    await page.evaluate(() => {
       const probeWindow = window as unknown as MotionProbeWindow;
-      probeWindow.animationCountAtDeadline = new Promise<number>((resolve) => {
+      probeWindow.animationEndTimes = new Promise<number[]>((resolve) => {
         document.addEventListener(
           "click",
           () => {
-            window.setTimeout(() => {
-              resolve(document.getAnimations().length);
-            }, deadlineMilliseconds);
+            requestAnimationFrame(() => {
+              resolve(
+                document
+                  .getAnimations()
+                  // A slowed playback rate would stretch the real time, so
+                  // the end time is scaled by it (Codex QA C4).
+                  .map(
+                    (animation) =>
+                      Number(animation.effect?.getComputedTiming().endTime) /
+                      animation.playbackRate,
+                  ),
+              );
+            });
           },
           { capture: true, once: true },
         );
       });
-    }, NATURAL_COMPLETION_WAIT_MILLISECONDS);
+    });
 
     await activate(locateSquare(page, 3), testInfo);
+    const endTimes = await page.evaluate(
+      () => (window as unknown as MotionProbeWindow).animationEndTimes,
+    );
     expect(
-      (await readRunningAnimations(page)).length,
-      "CSS animations right after the winning move",
+      endTimes?.length ?? 0,
+      "CSS animations in the first frame after the winning move",
     ).toBeGreaterThan(0);
+    for (const endTime of endTimes ?? []) {
+      expect(
+        endTime,
+        "an animation's delay plus duration, in milliseconds",
+      ).toBeLessThanOrEqual(SETTLED_BY_MILLISECONDS);
+    }
 
+    await waitForAnimationsToFinish(page);
     expect(
-      await page.evaluate(
-        () => (window as unknown as MotionProbeWindow).animationCountAtDeadline,
-      ),
-      "animations 600 ms after the click",
+      await countAllAnimations(page),
+      "animations once every one has finished",
     ).toBe(0);
   });
 

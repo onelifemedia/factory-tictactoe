@@ -1,7 +1,6 @@
 // F-006, F-007, F-008, F-014, F-015 (R-001, R-002, R-005, R-006, R-007, R-010,
-// R-013): renders
-// the game state into the page and manages keyboard focus (roving tabindex,
-// ADR-012). Pieces are inline SVG using the #mark-x / #mark-o symbols in
+// R-013): renders the game state into the page and manages keyboard focus
+// (roving tabindex, ADR-012). Pieces are inline SVG using the #mark-x / #mark-o symbols in
 // index.html, and a win is drawn by one overlay on the board. Squares whose
 // piece the last action placed carry is-new, so only those pieces drop in.
 // Every attribute is derived from the state on each render, and stale ones are
@@ -17,7 +16,7 @@ import type { FirstMover, GameState } from "../game/game";
 import { nextSquareIndex, type FocusTarget } from "./focus";
 import { classifyLine, describeWinLinePath } from "./line-direction";
 import { describeSquareLabel } from "./messages";
-import { findNewlyPlacedSquares } from "./new-pieces";
+import { findNewlyPlacedSquareIndexes } from "./new-pieces";
 
 const EMPTY_BOARD = createEmptyBoard();
 
@@ -60,19 +59,25 @@ function createSquare(
   return square;
 }
 
+// A piece is the inline SVG drawing of a mark; `.mark` is its class in the
+// design system (design-system.md §5), so the CSS keeps that name.
 function createPiece(mark: NonNullable<Cell>): SVGSVGElement {
   const piece = document.createElementNS(SVG_NAMESPACE, "svg");
   piece.setAttribute("aria-hidden", "true");
   piece.setAttribute("viewBox", "0 0 100 100");
   piece.append(document.createElementNS(SVG_NAMESPACE, "use"));
-  showPieceMark(piece, mark);
+  setPieceSymbol(piece, mark);
   return piece;
 }
 
-function showPieceMark(piece: SVGSVGElement, mark: NonNullable<Cell>): void {
-  const symbolName = mark === "X" ? "mark-x" : "mark-o";
-  piece.setAttribute("class", `mark mark--${mark === "X" ? "x" : "o"}`);
-  piece.firstElementChild?.setAttribute("href", `#${symbolName}`);
+function setPieceSymbol(piece: SVGSVGElement, mark: NonNullable<Cell>): void {
+  const markSuffix = mark === "X" ? "x" : "o";
+  piece.setAttribute("class", `mark mark--${markSuffix}`);
+  const symbolReference = piece.querySelector("use");
+  if (symbolReference === null) {
+    throw new Error("A piece is missing its <use> element");
+  }
+  symbolReference.setAttribute("href", `#mark-${markSuffix}`);
 }
 
 /** Shows the cell's piece, or removes it so an empty square holds no piece. */
@@ -81,33 +86,39 @@ function renderPiece(square: HTMLButtonElement, cell: Cell): void {
   if (cell === null) {
     piece?.remove();
   } else if (piece) {
-    showPieceMark(piece, cell);
+    setPieceSymbol(piece, cell);
   } else {
     square.append(createPiece(cell));
   }
 }
 
-function createWinLine(): SVGSVGElement {
-  const winLine = document.createElementNS(SVG_NAMESPACE, "svg");
-  winLine.setAttribute("class", "win-line");
-  winLine.setAttribute("aria-hidden", "true");
-  winLine.setAttribute("viewBox", "0 0 300 300");
-  winLine.setAttribute("preserveAspectRatio", "none");
-  winLine.setAttribute("hidden", "");
-  winLine.append(document.createElementNS(SVG_NAMESPACE, "path"));
-  return winLine;
+interface WinLineOverlay {
+  overlay: SVGSVGElement;
+  path: SVGPathElement;
 }
 
-function renderWinLine(winLine: SVGSVGElement, winningLine: Line | null): void {
+function createWinLineOverlay(): WinLineOverlay {
+  const overlay = document.createElementNS(SVG_NAMESPACE, "svg");
+  overlay.setAttribute("class", "win-line");
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.setAttribute("viewBox", "0 0 300 300");
+  overlay.setAttribute("preserveAspectRatio", "none");
+  overlay.setAttribute("hidden", "");
+  const path = document.createElementNS(SVG_NAMESPACE, "path");
+  overlay.append(path);
+  return { overlay, path };
+}
+
+function renderWinLineOverlay(
+  winLineOverlay: WinLineOverlay,
+  winningLine: Line | null,
+): void {
   if (winningLine === null) {
-    winLine.setAttribute("hidden", "");
+    winLineOverlay.overlay.setAttribute("hidden", "");
     return;
   }
-  winLine.firstElementChild?.setAttribute(
-    "d",
-    describeWinLinePath(winningLine),
-  );
-  winLine.removeAttribute("hidden");
+  winLineOverlay.path.setAttribute("d", describeWinLinePath(winningLine));
+  winLineOverlay.overlay.removeAttribute("hidden");
 }
 
 function createChoice(handlers: GameViewHandlers): HTMLElement {
@@ -183,6 +194,8 @@ function renderSquare(
   }
   if (winningLine?.includes(index)) {
     square.dataset["winning"] = "true";
+    // No style reads data-line since F-014 (the overlay draws the line); it
+    // stays as a test and debugging hook naming the line's direction.
     square.dataset["line"] = classifyLine(winningLine);
   } else {
     delete square.dataset["winning"];
@@ -205,8 +218,8 @@ export function createGameView(
   const squares = Array.from({ length: SQUARE_COUNT }, (_, index) =>
     createSquare(index, handlers),
   );
-  const winLine = createWinLine();
-  elements.board.replaceChildren(...squares, winLine);
+  const winLineOverlay = createWinLineOverlay();
+  elements.board.replaceChildren(...squares, winLineOverlay.overlay);
   let renderedPhase: GameState["phase"] | null = null;
   let renderedBoard: Board = EMPTY_BOARD;
   let activeIndex = 0;
@@ -280,7 +293,10 @@ export function createGameView(
       const board = state.phase === "choosing" ? EMPTY_BOARD : state.board;
       const isPlaying = state.phase === "playing";
       const winningLine = findWinningLine(state);
-      const newlyPlacedSquares = findNewlyPlacedSquares(renderedBoard, board);
+      const newlyPlacedIndexes = findNewlyPlacedSquareIndexes(
+        renderedBoard,
+        board,
+      );
       renderedBoard = board;
       squares.forEach((square, index) => {
         renderSquare(
@@ -290,9 +306,9 @@ export function createGameView(
           isPlaying,
           winningLine,
         );
-        square.classList.toggle("is-new", newlyPlacedSquares.includes(index));
+        square.classList.toggle("is-new", newlyPlacedIndexes.includes(index));
       });
-      renderWinLine(winLine, winningLine);
+      renderWinLineOverlay(winLineOverlay, winningLine);
       if (isPlaying) {
         makeSquareActive(activeIndex, false);
       }

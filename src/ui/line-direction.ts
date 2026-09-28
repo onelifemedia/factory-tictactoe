@@ -1,7 +1,7 @@
 // F-007, F-005, F-014 (R-005): which way a winning line runs, and where its
 // win-line overlay is drawn. One classifier for both the view and the wording
 // (messages), so they cannot drift apart (QA code review).
-import type { Line } from "../game/board";
+import { COLUMN_COUNT, type Line } from "../game/board";
 
 export type LineDirection = "row" | "column" | "diagonal-down" | "diagonal-up";
 
@@ -20,15 +20,18 @@ export function classifyLine(line: Line): LineDirection {
 // F-014 R-005: the overlay is a 300×300 box whose inset puts the tile centres
 // at 50, 150 and 250 (design-system §5 Win line). The bar runs from the first
 // winning centre to the third, extended by WIN_LINE_OVERHANG_UNITS at each end.
-const TILE_CENTRES = [50, 150, 250] as const;
+const TILE_CENTRE_POSITIONS_UNITS = [50, 150, 250] as const;
 const WIN_LINE_OVERHANG_UNITS = 18;
-const CENTRE_DISTANCE_UNITS = 200;
+const CENTRE_DISTANCE_UNITS =
+  TILE_CENTRE_POSITIONS_UNITS[2] - TILE_CENTRE_POSITIONS_UNITS[0];
 
 function findTileCentre(index: number): [number, number] {
-  return [
-    TILE_CENTRES[index % 3] ?? 0,
-    TILE_CENTRES[Math.floor(index / 3)] ?? 0,
-  ];
+  const centreX = TILE_CENTRE_POSITIONS_UNITS[index % COLUMN_COUNT];
+  const centreY = TILE_CENTRE_POSITIONS_UNITS[Math.floor(index / COLUMN_COUNT)];
+  if (centreX === undefined || centreY === undefined) {
+    throw new RangeError(`Square ${String(index)} is not on the board`);
+  }
+  return [centreX, centreY];
 }
 
 /** The win-line overlay path ("M x1 y1 L x2 y2") in the overlay's coordinates. */

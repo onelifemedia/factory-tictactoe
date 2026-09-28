@@ -23,7 +23,8 @@ const REFERENCING_ATTRIBUTES = new Map([
   ["base", "href"],
 ]);
 // Quote-aware: a ">" inside a quoted attribute value does not end the tag.
-const TAG_PATTERN = /<([a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+export const TAG_PATTERN =
+  /<([a-z][a-z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
 const ATTRIBUTE_PATTERN =
   /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 const INLINE_SCRIPT_PATTERN = /<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi;
@@ -44,6 +45,13 @@ const NAMED_ENTITIES = new Map([
   ["sol", "/"],
   ["colon", ":"],
   ["period", "."],
+  ["lpar", "("],
+  ["rpar", ")"],
+  ["bsol", "\\"],
+  ["num", "#"],
+  ["semi", ";"],
+  ["comma", ","],
+  ["equals", "="],
   ["tab", "\t"],
   ["newline", "\n"],
 ]);
@@ -52,7 +60,7 @@ const NAMED_ENTITIES = new Map([
  * @param {string} text
  * @returns {string}
  */
-function decodeHtmlEntities(text) {
+export function decodeHtmlEntities(text) {
   return text.replace(
     /&(?:#(\d+)|#x([0-9a-f]+)|([a-z]+));?/gi,
     (
@@ -100,7 +108,7 @@ function decodeStringEscapes(text) {
  * @param {string} attributeText
  * @returns {Map<string, string>}
  */
-function parseAttributes(attributeText) {
+export function parseAttributes(attributeText) {
   /** @type {Map<string, string>} */
   const attributes = new Map();
   for (const match of attributeText.matchAll(ATTRIBUTE_PATTERN)) {

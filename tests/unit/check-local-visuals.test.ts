@@ -319,6 +319,221 @@ describe("findVisualFileReferences reports visual files (F-014 R-013)", () => {
   });
 });
 
+describe("findVisualFileReferences closes the QA review's bypasses (F-014 R-013, QA security review)", () => {
+  it.each([
+    {
+      referenceName: "a CSS-escaped url(",
+      css: ".a{background:\\75 rl(x.png)}",
+      kind: "url",
+    },
+    {
+      referenceName: "an @import of a string",
+      css: '@import "extra.css";',
+      kind: "import",
+    },
+    {
+      referenceName: "image-set()",
+      css: '.a{background-image:image-set("x.png" 1x)}',
+      kind: "image-function",
+    },
+    {
+      referenceName: "-webkit-image-set()",
+      css: '.a{background-image:-webkit-image-set("x.png" 1x)}',
+      kind: "image-function",
+    },
+    {
+      referenceName: "an unterminated url( at the end",
+      css: ".a{background:url(x.png",
+      kind: "url",
+    },
+  ])("reports $referenceName in CSS (F-014 R-013)", ({ css, kind }) => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(fixtureDirectory, "assets/extra.css", `${css}\n`);
+    const findings = findVisualFileReferences(fixtureDirectory);
+    expect(findings.map((finding) => finding.kind)).toContain(kind);
+  });
+
+  it.each([
+    {
+      referenceName: "an entity-encoded url&#40; in a style attribute",
+      markup: '<div style="background:url&#40;e.png)"></div>',
+      kind: "url",
+    },
+    {
+      referenceName: "an SVG <image>",
+      markup: '<svg><image href="x.png" width="1" height="1"/></svg>',
+      kind: "element",
+    },
+    {
+      referenceName: "an SVG <feImage>",
+      markup: '<svg><filter id="f"><feImage href="x.png"/></filter></svg>',
+      kind: "element",
+    },
+    {
+      referenceName: "a <link rel=icon> to a file",
+      markup: '<link rel="icon" href="/favicon.png">',
+      kind: "link",
+    },
+    {
+      referenceName: "a <link rel=preload> image",
+      markup: '<link rel="preload" as="image" href="/table.webp">',
+      kind: "link",
+    },
+    {
+      referenceName: "a <picture><source srcset>",
+      markup: '<picture><source srcset="x.webp"></picture>',
+      kind: "element",
+    },
+    {
+      referenceName: "a srcset attribute",
+      markup: '<div srcset="x.webp 1x"></div>',
+      kind: "attribute",
+    },
+    {
+      referenceName: "a <video poster>",
+      markup: '<video poster="x.jpg"></video>',
+      kind: "attribute",
+    },
+    {
+      referenceName: "an <input type=image>",
+      markup: '<input type="image" src="go.png" alt="Go">',
+      kind: "element",
+    },
+    {
+      referenceName: "an <object>",
+      markup: '<object data="x.svg"></object>',
+      kind: "element",
+    },
+    {
+      referenceName: "an <embed>",
+      markup: '<embed src="x.svg">',
+      kind: "element",
+    },
+    {
+      referenceName: "a <use> pointing at another file",
+      markup: '<svg><use href="sprites.svg#mark-x"/></svg>',
+      kind: "use",
+    },
+    {
+      referenceName: "a <use> with xlink:href to another file",
+      markup: '<svg><use xlink:href="sprites.svg#mark-o"/></svg>',
+      kind: "use",
+    },
+  ])("reports $referenceName in HTML (F-014 R-013)", ({ markup, kind }) => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace("</main>", `${markup}</main>`),
+    );
+    const findings = findVisualFileReferences(fixtureDirectory);
+    expect(findings.map((finding) => finding.kind)).toContain(kind);
+  });
+
+  it("reports an <img> between two comments that mention <script> (F-014 R-013, Codex QA C1)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</main>",
+        '<!-- <script> --><img src="x.png" alt=""><!-- </script> --></main>',
+      ),
+    );
+    expect(
+      findVisualFileReferences(fixtureDirectory).map((finding) => finding.kind),
+    ).toEqual(["img"]);
+  });
+
+  it("reports a CSS escape written with the &bsol; entity in a style attribute (F-014 R-013, Codex QA C2)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</main>",
+        '<div style="background:&bsol;75 rl(x.png)"></div></main>',
+      ),
+    );
+    expect(
+      findVisualFileReferences(fixtureDirectory).map((finding) => finding.kind),
+    ).toContain("url");
+  });
+
+  it.each([
+    { destination: "script", href: "./assets/app.js" },
+    { destination: "style", href: "./assets/app.css" },
+  ])(
+    "allows a preload of a $destination (F-014 R-013, Codex QA C3)",
+    ({ destination, href }) => {
+      const fixtureDirectory = createFixtureDirectory();
+      writeCleanBuild(fixtureDirectory);
+      writeFixtureFile(
+        fixtureDirectory,
+        "index.html",
+        PRODUCT_LIKE_HTML.replace(
+          "</head>",
+          `<link rel="preload" as="${destination}" href="${href}"></head>`,
+        ),
+      );
+      expect(findVisualFileReferences(fixtureDirectory)).toEqual([]);
+    },
+  );
+
+  it("reports a preload of a font (F-014 R-013, Codex QA C3)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</head>",
+        '<link rel="preload" as="font" href="./brand.woff2" crossorigin></head>',
+      ),
+    );
+    expect(
+      findVisualFileReferences(fixtureDirectory).map((finding) => finding.kind),
+    ).toEqual(["link"]);
+  });
+
+  it("does not crash on an out-of-range CSS escape (F-014 R-013, Codex QA C5)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "assets/extra.css",
+      '.x::before{content:"\\ffffff"}\n',
+    );
+    expect(findVisualFileReferences(fixtureDirectory)).toEqual([]);
+  });
+
+  it("allows the empty data: icon that stops the automatic /favicon.ico request (F-014 R-013)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</head>",
+        '<link rel="icon" href="data:,"></head>',
+      ),
+    );
+    expect(findVisualFileReferences(fixtureDirectory)).toEqual([]);
+  });
+
+  it("the real index.html declares the empty data: icon, so browsers request no favicon file (F-014 R-013, QA security review)", () => {
+    const indexHtml = readFileSync(
+      path.join(projectRoot, "index.html"),
+      "utf8",
+    );
+    expect(indexHtml).toMatch(/<link\s+rel="icon"\s+href="data:,"\s*\/?>/);
+  });
+});
+
 describe("check-local-visuals CLI (F-014 R-013)", () => {
   it("exits 0 on a clean directory (F-014 R-013)", () => {
     const fixtureDirectory = createFixtureDirectory();
