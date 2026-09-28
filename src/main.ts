@@ -1,4 +1,4 @@
-// F-001, F-006, F-007: wires the pure game (src/game) to the page (src/ui).
+// F-001, F-006, F-007, F-008: wires the pure game (src/game) to the page (src/ui).
 import "./styles.css";
 import {
   playHumanMove,
@@ -6,6 +6,7 @@ import {
   startGame,
   type GameStep,
 } from "./game/game";
+import { chooseFocusTarget, type FocusTarget } from "./ui/focus";
 import { statusText } from "./ui/messages";
 import { createGameView } from "./ui/view";
 
@@ -40,9 +41,13 @@ const view = createGameView(
 
 // The status is recomputed from every step; only square activations and
 // choices produce steps, so a taken-square message stays until the next one.
-function apply(step: GameStep): void {
+// Focus follows the design's focus map; the first render moves no focus.
+function apply(
+  step: GameStep,
+  focusTarget: FocusTarget | null = chooseFocusTarget(step),
+): void {
   current = step;
-  view.render(step.state, statusText(step.state, step.events));
+  view.render(step.state, statusText(step.state, step.events), focusTarget);
 }
 
-apply(current);
+apply(current, null);
