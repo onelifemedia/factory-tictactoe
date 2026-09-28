@@ -200,7 +200,7 @@ describe("deploy.yml (F-013 R-014)", () => {
   });
 
   it("makes deploy need build and smoke need prepare and deploy (Codex C2, F-013 R-014)", () => {
-    expect(readJobNeeds("deploy")).toEqual(["build"]);
+    expect(readJobNeeds("deploy")).toEqual(["build", "prepare"]);
     expect(readJobNeeds("smoke")).toEqual(["deploy", "prepare"]);
   });
 
@@ -273,5 +273,24 @@ describe("deploy.yml (F-013 R-014)", () => {
         /uses:\s*(?:[\w.-]+\/[\w.-]+@[0-9a-f]{40}|docker:\/\/[^\s@]+@sha256:[0-9a-f]{64})(\s|$)/,
       );
     }
+  });
+
+  // Whole-change QA review (Codex C1): "Re-run failed jobs" reuses a passed
+  // prepare, so the deploy job re-checks main's tip itself, on every attempt,
+  // before publishing.
+  it("re-checks that the candidate is still main's tip inside deploy, before deploy-pages", () => {
+    const steps = extractJobSteps("deploy");
+    const recheckIndex = steps.findIndex(
+      (step) =>
+        step.includes("commits/main") &&
+        step.includes("needs.prepare.outputs.sha") &&
+        /exit 1/.test(step),
+    );
+    const deployIndex = steps.findIndex((step) =>
+      /uses:\s*actions\/deploy-pages@/.test(step),
+    );
+
+    expect(recheckIndex).toBeGreaterThanOrEqual(0);
+    expect(deployIndex).toBeGreaterThan(recheckIndex);
   });
 });
