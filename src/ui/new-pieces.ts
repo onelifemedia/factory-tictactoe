@@ -4,13 +4,13 @@ import type { Board } from "../game/board";
 
 /**
  * Indexes (ascending) of squares empty in `previousBoard` and holding a piece
- * in `nextBoard`. Stub for the TDD red step; not implemented yet.
+ * in `nextBoard`.
  */
 export function findNewlyPlacedSquares(
   previousBoard: Board,
   nextBoard: Board,
 ): number[] {
-  throw new Error(
-    `findNewlyPlacedSquares is not implemented yet (F-015): ${String(previousBoard.length)} to ${String(nextBoard.length)} squares`,
+  return nextBoard.flatMap((cell, index) =>
+    cell !== null && (previousBoard[index] ?? null) === null ? [index] : [],
   );
 }
