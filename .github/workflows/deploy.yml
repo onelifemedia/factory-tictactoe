@@ -103,7 +103,7 @@ jobs:
 
   deploy:
     name: deploy
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -111,6 +111,20 @@ jobs:
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # "Re-run failed jobs" reuses a passed prepare, so freshness is checked
+      # again here, on every attempt, right before publishing (QA review).
+      - name: Re-check that this commit is still the latest on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          set -euo pipefail
+          main_tip=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
+          if [ "$main_tip" != "$CANDIDATE_SHA" ]; then
+            echo "$CANDIDATE_SHA is no longer the latest commit on main ($main_tip); not deploying it."
+            exit 1
+          fi
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
