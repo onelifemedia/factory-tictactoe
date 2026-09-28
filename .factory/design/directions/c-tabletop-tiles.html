@@ -1,0 +1,101 @@
+<!doctype html>
+<!--
+  DIRECTION BOARD, not implementation. Factory design phase, factory-tictactoe.
+  Direction C: Tabletop Tiles. Shows the in-play and game-over moments only.
+  Static HTML, CSS and inline SVG; no JavaScript, no font files, no image files, no external requests.
+  Contrast ratios below are computed by .factory/checkpoints/gen_directions.py, which fails on any pair
+  under 7:1 (text) or 3:1 (non-text). Reload the page to replay the motion samples.
+-->
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction C: Tabletop Tiles (factory-tictactoe)</title>
+<style>
+:root { --bg: #f3e8d4; --square: #fffaf0; --text: #2b1d13; --muted: #4f3b2b; --x: #b3261e; --o: #0b5b62; --border: #7a5f44; --focus: #2b1d13; --button: #0b5b62; --on-button: #fffaf0; --win-line: #2b1d13; --win-border: #2b1d13; --win-square: #ffd766; }
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; }
+.board-header { max-width: 72rem; margin: 0 auto; padding: 32px 24px 8px; }
+.board-header .kicker { margin: 0; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.875rem; color: var(--muted); }
+.board-header h2 { margin: 4px 0 8px; font-size: 2rem; line-height: 1.15; }
+.board-header p { margin: 0; max-width: 46rem; color: var(--muted); }
+.note { max-width: 72rem; margin: 0 auto; padding: 8px 24px 0; font-size: 0.875rem; color: var(--muted); }
+.moments { max-width: 72rem; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; }
+.moment { margin: 0; width: 360px; max-width: 100%; }
+.moment-label { padding: 12px 20px 0; font-size: 0.875rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+.page { container-type: inline-size; display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.title { margin: 0; }
+.status { margin: 0; min-height: calc(3 * 1.4em); line-height: 1.4; font-size: 1.125rem; }
+.board { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); width: 100%; aspect-ratio: 1; }
+.square { position: relative; min-width: 44px; min-height: 44px; aspect-ratio: 1; padding: 12%; margin: 0; font: inherit; cursor: pointer; }
+.square[disabled] { cursor: default; }
+.mark { position: relative; z-index: 2; display: block; width: 100%; height: 100%; overflow: visible; }
+.mark--x { color: var(--x); } .mark--o { color: var(--o); }
+.win-line { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.win-line path { fill: none; stroke: var(--win-line); }
+.actions { min-height: 44px; display: flex; flex-direction: column; gap: 12px; }
+.hint { margin: 0; font-size: 0.875rem; color: var(--muted); text-align: center; }
+.button { min-height: 44px; min-width: 44px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+.button:focus-visible, .square:focus-visible, .is-focused { outline: 3px solid var(--focus); outline-offset: 3px; }
+.spec { max-width: 72rem; margin: 0 auto; padding: 16px 24px 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 24px; }
+.spec section { padding: 16px 18px; }
+.spec h3 { margin: 0 0 8px; font-size: 1rem; }
+.spec p { margin: 0; }
+.swatches { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.875rem; }
+.swatches li { display: grid; grid-template-columns: 2.25rem 1fr auto; gap: 8px; align-items: center; }
+.chip { width: 2.25rem; height: 1.5rem; border: 1px solid var(--text); display: grid; place-items: center; font-weight: 800; font-size: 0.75rem; }
+.ratio { font-variant-numeric: tabular-nums; font-weight: 700; }
+.states { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center; }
+.states .button { pointer-events: none; }
+.state-label { font-size: 0.75rem; color: var(--muted); display: block; text-align: center; margin-top: 4px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+
+.board-header h2, .title { font-family: ui-rounded, 'SF Pro Rounded', system-ui, sans-serif; font-weight: 800; }
+.title { font-size: 2.25rem; line-height: 1.1; }
+.status { font-weight: 600; }
+.frame { background: var(--bg); border-radius: 28px; box-shadow: 0 1px 0 #fff inset, 0 10px 30px rgba(84, 56, 26, 0.18); }
+.board { --gap: 12px; padding: 12px; background: #e3cfae; border-radius: 26px; box-shadow: inset 0 3px 8px rgba(84, 56, 26, 0.25); }
+.square { background: var(--square); border: 2px solid var(--border); border-radius: 18px; box-shadow: 0 6px 0 #c6a57b, 0 8px 10px rgba(84, 56, 26, 0.25); transition: transform 80ms, box-shadow 80ms; }
+.square:not([disabled]):hover { transform: translateY(-1px); }
+.square:not([disabled]):active { transform: translateY(4px); box-shadow: 0 2px 0 #c6a57b; }
+.square[disabled]:not([data-winning]) { background: #f7efe1; }
+.piece rect { fill: currentColor; }
+.ring { fill: none; stroke: currentColor; stroke-width: 17; }
+.mark { filter: drop-shadow(0 2px 0 rgba(43, 29, 19, 0.28)); }
+.square[data-winning="true"] { background: var(--win-square); border: 4px solid var(--win-border); top: -3px; box-shadow: 0 9px 0 #b98d1c, 0 12px 16px rgba(84, 56, 26, 0.3); }
+.win-line path { stroke-width: 12; stroke-linecap: round; }
+.button { background: var(--button); color: var(--on-button); border: 0; border-radius: 999px; box-shadow: 0 5px 0 #06363a; font-size: 1.125rem; padding: 10px 22px; margin-bottom: 5px; }
+.button:hover, .button.is-hover { background: #08494f; }
+.button:active, .button.is-pressed { transform: translateY(4px); box-shadow: 0 1px 0 #06363a; }
+.spec section { background: var(--square); border: 2px solid var(--border); border-radius: 18px; box-shadow: 0 4px 0 #c6a57b; }
+@media (prefers-reduced-motion: no-preference) {
+  .is-new .mark { animation: drop 280ms cubic-bezier(0.3, 1.6, 0.5, 1) 200ms both; }
+  .square[data-winning="true"] { animation: lift 240ms ease-out 250ms both; }
+}
+@keyframes drop { from { transform: translateY(-22px) scale(1.15); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lift { from { top: 0; box-shadow: 0 6px 0 #c6a57b; } }
+@media (prefers-reduced-motion: reduce) { .square, .square:not([disabled]):hover, .square:not([disabled]):active, .square[data-winning="true"] { transform: none; transition: none; }
+@media (prefers-reduced-motion: reduce) { .square[data-winning="true"] { top: 0; } } }
+
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="mx" viewBox="0 0 100 100"><g class="piece"><rect x="41" y="12" width="18" height="76" rx="9" transform="rotate(45 50 50)"/><rect x="41" y="12" width="18" height="76" rx="9" transform="rotate(-45 50 50)"/></g></symbol><symbol id="mo" viewBox="0 0 100 100"><circle class="ring" cx="50" cy="50" r="28"/></symbol></defs></svg>
+<header class="board-header">
+<p class="kicker">Direction C of 3</p>
+<h2>Tabletop Tiles</h2>
+<p>Chunky wooden game pieces on a warm table: bright, sure of itself, every square feels like it would click when you press it.</p>
+</header>
+<p class="note">Same sample game on every board: you took row 1, columns 1 and 2; the computer blocked at row 1, column 3. In the game-over state the computer has won on the diagonal. Copy is the exact tested copy.</p>
+<div class="moments">
+<div class="frame"><figure class="moment"><figcaption class="moment-label">In play: your turn</figcaption><main class="page"><h1 class="title">Tic-tac-toe</h1><p class="status">Computer placed O in row 1, column 3. Your turn.</p><div class="board" role="group" aria-label="Board"><button type="button" class="square" aria-label="Row 1, column 1, X"><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square is-focused" aria-label="Row 1, column 2, X"><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square is-new" aria-label="Row 1, column 3, O"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 1, empty"></button><button type="button" class="square" aria-label="Row 2, column 2, O"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 3, empty"></button><button type="button" class="square" aria-label="Row 3, column 1, empty"></button><button type="button" class="square" aria-label="Row 3, column 2, empty"></button><button type="button" class="square" aria-label="Row 3, column 3, empty"></button></div><div class="actions"><p class="hint">Arrow keys move between squares. Enter or Space places X.</p></div><div class="visually-hidden" role="status">You placed X in row 1, column 2. Computer placed O in row 1, column 3. Your turn.</div></main></figure></div>
+<div class="frame"><figure class="moment"><figcaption class="moment-label">Game over: computer wins</figcaption><main class="page"><h1 class="title">Tic-tac-toe</h1><p class="status">Computer wins with the diagonal from top right to bottom left.</p><div class="board" role="group" aria-label="Board"><button type="button" class="square" aria-label="Row 1, column 1, X" disabled><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square" aria-label="Row 1, column 2, X" disabled><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square" aria-label="Row 1, column 3, O" disabled data-winning="true"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 1, X" disabled><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square" aria-label="Row 2, column 2, O" disabled data-winning="true"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 3, empty" disabled></button><button type="button" class="square is-new" aria-label="Row 3, column 1, O" disabled data-winning="true"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 3, column 2, empty" disabled></button><button type="button" class="square" aria-label="Row 3, column 3, empty" disabled></button><svg class="win-line" aria-hidden="true" viewBox="0 0 300 300" preserveAspectRatio="none"><path d="M268 32 L32 268"/></svg></div><div class="actions"><button type="button" class="button is-focused">Play again</button></div><div class="visually-hidden" role="status">You placed X in row 2, column 1. Computer placed O in row 3, column 1. Computer wins with the diagonal from top right to bottom left.</div></main></figure></div>
+</div>
+<div class="spec">
+<section><h3>Palette and contrast</h3><ul class="swatches"><li><span class="chip" style="background:#f3e8d4;color:#2b1d13" aria-hidden="true">Aa</span><span>Text on table <code>#2b1d13</code> on <code>#f3e8d4</code></span><span class="ratio">13.4:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#fffaf0;color:#2b1d13" aria-hidden="true">Aa</span><span>Text on tile <code>#2b1d13</code> on <code>#fffaf0</code></span><span class="ratio">15.7:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#f3e8d4;color:#4f3b2b" aria-hidden="true">Aa</span><span>Hint text <code>#4f3b2b</code> on <code>#f3e8d4</code></span><span class="ratio">8.7:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#0b5b62;color:#fffaf0" aria-hidden="true">Aa</span><span>Button label <code>#fffaf0</code> on <code>#0b5b62</code></span><span class="ratio">7.5:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#fffaf0;color:#b3261e" aria-hidden="true">Aa</span><span>X piece (tomato) <code>#b3261e</code> on <code>#fffaf0</code></span><span class="ratio">6.3:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#fffaf0;color:#0b5b62" aria-hidden="true">Aa</span><span>O piece (teal) <code>#0b5b62</code> on <code>#fffaf0</code></span><span class="ratio">7.5:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#f3e8d4;color:#7a5f44" aria-hidden="true">Aa</span><span>Tile edge <code>#7a5f44</code> on <code>#f3e8d4</code></span><span class="ratio">4.9:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#f3e8d4;color:#2b1d13" aria-hidden="true">Aa</span><span>Focus ring <code>#2b1d13</code> on <code>#f3e8d4</code></span><span class="ratio">13.4:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#fffaf0;color:#2b1d13" aria-hidden="true">Aa</span><span>Focus ring on tile <code>#2b1d13</code> on <code>#fffaf0</code></span><span class="ratio">15.7:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#ffd766;color:#2b1d13" aria-hidden="true">Aa</span><span>Winning bar on gold tile <code>#2b1d13</code> on <code>#ffd766</code></span><span class="ratio">11.8:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#ffd766;color:#0b5b62" aria-hidden="true">Aa</span><span>O on gold tile <code>#0b5b62</code> on <code>#ffd766</code></span><span class="ratio">5.6:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#f3e8d4;color:#2b1d13" aria-hidden="true">Aa</span><span>Winning tile edge <code>#2b1d13</code> on <code>#f3e8d4</code></span><span class="ratio">13.4:1 <span class="visually-hidden">(needs 3:1)</span></span></li></ul></section>
+<section><h3>Type</h3><p>Title: <code>ui-rounded</code> 800, big and friendly (falls back to <code>system-ui</code>). Body and status: <code>system-ui</code> 600. No font files.</p></section>
+<section><h3>Shape</h3><p>Chunky and physical: 18 px radius tiles with a 6 px wooden edge underneath, so each tile stands proud of the table. Marks are fat rounded pieces, not glyphs.</p></section>
+<section><h3>Motion</h3><p>Tactile: tiles sink 3 px when pressed, a new piece drops in with a small bounce (280 ms), and the winning tiles lift. Reduced motion: no drop, no lift; the press is kept as a colour change.</p></section>
+<section><h3>Details</h3><p>The only light direction of the three. Tomato and teal avoid generic web-app blue; the gold winning tiles carry a dark bar and border too, so colour is never the only cue.</p><div class="states"><span><button type="button" class="button " tabindex="-1">Play again</button><span class="state-label">Rest</span></span><span><button type="button" class="button is-hover" tabindex="-1">Play again</button><span class="state-label">Hover</span></span><span><button type="button" class="button is-pressed" tabindex="-1">Play again</button><span class="state-label">Pressed</span></span><span><button type="button" class="button is-focused" tabindex="-1">Play again</button><span class="state-label">Focus</span></span></div></section>
+</div>
+</body></html>

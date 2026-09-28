@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  DIRECTION BOARD, not implementation. Factory design phase, factory-tictactoe.
+  Direction B: Arcade Cabinet. Shows the in-play and game-over moments only.
+  Static HTML, CSS and inline SVG; no JavaScript, no font files, no image files, no external requests.
+  Contrast ratios below are computed by .factory/checkpoints/gen_directions.py, which fails on any pair
+  under 7:1 (text) or 3:1 (non-text). Reload the page to replay the motion samples.
+-->
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Direction B: Arcade Cabinet (factory-tictactoe)</title>
+<style>
+:root { --bg: #0c0922; --square: #17113f; --text: #ffffff; --muted: #d6d0ff; --x: #ff5cdb; --o: #40f0ff; --border: #8b7bff; --focus: #ffe81a; --button: #ffe81a; --on-button: #0c0922; --win-line: #ffe81a; --win-border: #ffe81a; }
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+code { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.9em; }
+.board-header { max-width: 72rem; margin: 0 auto; padding: 32px 24px 8px; }
+.board-header .kicker { margin: 0; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.875rem; color: var(--muted); }
+.board-header h2 { margin: 4px 0 8px; font-size: 2rem; line-height: 1.15; }
+.board-header p { margin: 0; max-width: 46rem; color: var(--muted); }
+.note { max-width: 72rem; margin: 0 auto; padding: 8px 24px 0; font-size: 0.875rem; color: var(--muted); }
+.moments { max-width: 72rem; margin: 0 auto; padding: 16px 24px; display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; }
+.moment { margin: 0; width: 360px; max-width: 100%; }
+.moment-label { padding: 12px 20px 0; font-size: 0.875rem; font-weight: 700; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+.page { container-type: inline-size; display: flex; flex-direction: column; gap: 16px; padding: 20px; }
+.title { margin: 0; }
+.status { margin: 0; min-height: calc(3 * 1.4em); line-height: 1.4; font-size: 1.125rem; }
+.board { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); width: 100%; aspect-ratio: 1; }
+.square { position: relative; min-width: 44px; min-height: 44px; aspect-ratio: 1; padding: 12%; margin: 0; font: inherit; cursor: pointer; }
+.square[disabled] { cursor: default; }
+.mark { position: relative; z-index: 2; display: block; width: 100%; height: 100%; overflow: visible; }
+.mark--x { color: var(--x); } .mark--o { color: var(--o); }
+.win-line { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.win-line path { fill: none; stroke: var(--win-line); }
+.actions { min-height: 44px; display: flex; flex-direction: column; gap: 12px; }
+.hint { margin: 0; font-size: 0.875rem; color: var(--muted); text-align: center; }
+.button { min-height: 44px; min-width: 44px; padding: 8px 16px; font: inherit; font-weight: 700; cursor: pointer; }
+.button:focus-visible, .square:focus-visible, .is-focused { outline: 3px solid var(--focus); outline-offset: 3px; }
+.spec { max-width: 72rem; margin: 0 auto; padding: 16px 24px 48px; display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 24px; }
+.spec section { padding: 16px 18px; }
+.spec h3 { margin: 0 0 8px; font-size: 1rem; }
+.spec p { margin: 0; }
+.swatches { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.875rem; }
+.swatches li { display: grid; grid-template-columns: 2.25rem 1fr auto; gap: 8px; align-items: center; }
+.chip { width: 2.25rem; height: 1.5rem; border: 1px solid var(--text); display: grid; place-items: center; font-weight: 800; font-size: 0.75rem; }
+.ratio { font-variant-numeric: tabular-nums; font-weight: 700; }
+.states { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; align-items: center; }
+.states .button { pointer-events: none; }
+.state-label { font-size: 0.75rem; color: var(--muted); display: block; text-align: center; margin-top: 4px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+
+.board-header h2, .title { font-family: system-ui, sans-serif; font-weight: 900; text-transform: uppercase; letter-spacing: 0.12em; }
+.title { font-size: 1.75rem; line-height: 1.1; text-shadow: 2px 2px 0 var(--x), 4px 4px 0 var(--border); }
+.status { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.moment-label { font-family: ui-monospace, Menlo, monospace; }
+.frame { background: var(--bg); border: 4px solid var(--border); box-shadow: 0 0 0 4px var(--bg), 0 0 0 8px var(--x); }
+.board { --gap: 6px; padding: 6px; background: #05030f; }
+.square { background: var(--square); border: 3px solid var(--border); border-radius: 0; border-top-color: #b7adff; border-bottom-color: #4c3fb8; }
+.square:not([disabled]):hover { border-color: var(--text); }
+.pixels rect { fill: currentColor; }
+.mark { shape-rendering: crispEdges; }
+.square[data-winning="true"] { border: 4px double var(--win-border); }
+.win-line path { stroke-width: 10; stroke-linecap: square; stroke-dasharray: 16 6; }
+.hint { font-family: ui-monospace, Menlo, monospace; text-transform: uppercase; font-size: 0.8125rem; }
+.hint::before { content: "▶ "; color: var(--focus); }
+.button { background: var(--button); color: var(--on-button); border: 0; border-radius: 0; box-shadow: 0 6px 0 #9c8d00, 0 6px 0 3px #05030f; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 900; font-size: 1.125rem; margin-bottom: 6px; }
+.button:hover, .button.is-hover { box-shadow: 0 6px 0 #9c8d00, 0 0 0 3px var(--text); }
+.button:active, .button.is-pressed { transform: translateY(5px); box-shadow: 0 1px 0 #9c8d00; }
+.spec section { border: 3px solid var(--border); background: var(--square); }
+.spec h3 { font-family: ui-monospace, Menlo, monospace; text-transform: uppercase; }
+@media (prefers-reduced-motion: no-preference) {
+  .is-new .mark { animation: pop 240ms steps(3) 200ms both; }
+  .square[data-winning="true"] { animation: blink 600ms steps(2) 300ms 2; }
+}
+@keyframes pop { 0% { transform: scale(0.4); } 66% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes blink { 50% { border-color: var(--square); } }
+
+</style></head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="mx" viewBox="0 0 100 100"><g class="pixels"><rect x="10" y="10" width="10" height="10"/><rect x="10" y="70" width="10" height="10"/><rect x="10" y="80" width="10" height="10"/><rect x="20" y="10" width="10" height="10"/><rect x="20" y="20" width="10" height="10"/><rect x="20" y="60" width="10" height="10"/><rect x="20" y="70" width="10" height="10"/><rect x="30" y="20" width="10" height="10"/><rect x="30" y="30" width="10" height="10"/><rect x="30" y="50" width="10" height="10"/><rect x="30" y="60" width="10" height="10"/><rect x="40" y="30" width="10" height="10"/><rect x="40" y="40" width="10" height="10"/><rect x="40" y="50" width="10" height="10"/><rect x="50" y="30" width="10" height="10"/><rect x="50" y="40" width="10" height="10"/><rect x="50" y="50" width="10" height="10"/><rect x="60" y="20" width="10" height="10"/><rect x="60" y="30" width="10" height="10"/><rect x="60" y="50" width="10" height="10"/><rect x="60" y="60" width="10" height="10"/><rect x="70" y="10" width="10" height="10"/><rect x="70" y="20" width="10" height="10"/><rect x="70" y="60" width="10" height="10"/><rect x="70" y="70" width="10" height="10"/><rect x="80" y="10" width="10" height="10"/><rect x="80" y="70" width="10" height="10"/><rect x="80" y="80" width="10" height="10"/></g></symbol><symbol id="mo" viewBox="0 0 100 100"><g class="pixels"><rect x="10" y="30" width="10" height="10"/><rect x="10" y="40" width="10" height="10"/><rect x="10" y="50" width="10" height="10"/><rect x="10" y="60" width="10" height="10"/><rect x="20" y="20" width="10" height="10"/><rect x="20" y="30" width="10" height="10"/><rect x="20" y="60" width="10" height="10"/><rect x="20" y="70" width="10" height="10"/><rect x="30" y="10" width="10" height="10"/><rect x="30" y="20" width="10" height="10"/><rect x="30" y="70" width="10" height="10"/><rect x="30" y="80" width="10" height="10"/><rect x="40" y="10" width="10" height="10"/><rect x="40" y="80" width="10" height="10"/><rect x="50" y="10" width="10" height="10"/><rect x="50" y="80" width="10" height="10"/><rect x="60" y="10" width="10" height="10"/><rect x="60" y="20" width="10" height="10"/><rect x="60" y="70" width="10" height="10"/><rect x="60" y="80" width="10" height="10"/><rect x="70" y="20" width="10" height="10"/><rect x="70" y="30" width="10" height="10"/><rect x="70" y="60" width="10" height="10"/><rect x="70" y="70" width="10" height="10"/><rect x="80" y="30" width="10" height="10"/><rect x="80" y="40" width="10" height="10"/><rect x="80" y="50" width="10" height="10"/><rect x="80" y="60" width="10" height="10"/></g></symbol></defs></svg>
+<header class="board-header">
+<p class="kicker">Direction B of 3</p>
+<h2>Arcade Cabinet</h2>
+<p>An arcade cabinet after dark: pixel marks, neon on deep ink, a loud marquee that dares you to go again.</p>
+</header>
+<p class="note">Same sample game on every board: you took row 1, columns 1 and 2; the computer blocked at row 1, column 3. In the game-over state the computer has won on the diagonal. Copy is the exact tested copy.</p>
+<div class="moments">
+<div class="frame"><figure class="moment"><figcaption class="moment-label">In play: your turn</figcaption><main class="page"><h1 class="title">Tic-tac-toe</h1><p class="status">Computer placed O in row 1, column 3. Your turn.</p><div class="board" role="group" aria-label="Board"><button type="button" class="square" aria-label="Row 1, column 1, X"><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square is-focused" aria-label="Row 1, column 2, X"><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square is-new" aria-label="Row 1, column 3, O"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 1, empty"></button><button type="button" class="square" aria-label="Row 2, column 2, O"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 3, empty"></button><button type="button" class="square" aria-label="Row 3, column 1, empty"></button><button type="button" class="square" aria-label="Row 3, column 2, empty"></button><button type="button" class="square" aria-label="Row 3, column 3, empty"></button></div><div class="actions"><p class="hint">Arrow keys move between squares. Enter or Space places X.</p></div><div class="visually-hidden" role="status">You placed X in row 1, column 2. Computer placed O in row 1, column 3. Your turn.</div></main></figure></div>
+<div class="frame"><figure class="moment"><figcaption class="moment-label">Game over: computer wins</figcaption><main class="page"><h1 class="title">Tic-tac-toe</h1><p class="status">Computer wins with the diagonal from top right to bottom left.</p><div class="board" role="group" aria-label="Board"><button type="button" class="square" aria-label="Row 1, column 1, X" disabled><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square" aria-label="Row 1, column 2, X" disabled><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square" aria-label="Row 1, column 3, O" disabled data-winning="true"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 1, X" disabled><svg class="mark mark--x" aria-hidden="true" viewBox="0 0 100 100"><use href="#mx"/></svg></button><button type="button" class="square" aria-label="Row 2, column 2, O" disabled data-winning="true"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 2, column 3, empty" disabled></button><button type="button" class="square is-new" aria-label="Row 3, column 1, O" disabled data-winning="true"><svg class="mark mark--o" aria-hidden="true" viewBox="0 0 100 100"><use href="#mo"/></svg></button><button type="button" class="square" aria-label="Row 3, column 2, empty" disabled></button><button type="button" class="square" aria-label="Row 3, column 3, empty" disabled></button><svg class="win-line" aria-hidden="true" viewBox="0 0 300 300" preserveAspectRatio="none"><path d="M268 32 L32 268"/></svg></div><div class="actions"><button type="button" class="button is-focused">Play again</button></div><div class="visually-hidden" role="status">You placed X in row 2, column 1. Computer placed O in row 3, column 1. Computer wins with the diagonal from top right to bottom left.</div></main></figure></div>
+</div>
+<div class="spec">
+<section><h3>Palette and contrast</h3><ul class="swatches"><li><span class="chip" style="background:#0c0922;color:#ffffff" aria-hidden="true">Aa</span><span>Text on ink <code>#ffffff</code> on <code>#0c0922</code></span><span class="ratio">19.5:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#17113f;color:#ffffff" aria-hidden="true">Aa</span><span>Text on cell <code>#ffffff</code> on <code>#17113f</code></span><span class="ratio">17.7:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#0c0922;color:#d6d0ff" aria-hidden="true">Aa</span><span>Hint text <code>#d6d0ff</code> on <code>#0c0922</code></span><span class="ratio">13.3:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#ffe81a;color:#0c0922" aria-hidden="true">Aa</span><span>Button label <code>#0c0922</code> on <code>#ffe81a</code></span><span class="ratio">15.6:1 <span class="visually-hidden">(needs 7:1)</span></span></li><li><span class="chip" style="background:#17113f;color:#ff5cdb" aria-hidden="true">Aa</span><span>X pixels (magenta) <code>#ff5cdb</code> on <code>#17113f</code></span><span class="ratio">6.6:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#17113f;color:#40f0ff" aria-hidden="true">Aa</span><span>O pixels (cyan) <code>#40f0ff</code> on <code>#17113f</code></span><span class="ratio">12.7:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#0c0922;color:#8b7bff" aria-hidden="true">Aa</span><span>Cell edge <code>#8b7bff</code> on <code>#0c0922</code></span><span class="ratio">5.9:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#0c0922;color:#ffe81a" aria-hidden="true">Aa</span><span>Focus ring <code>#ffe81a</code> on <code>#0c0922</code></span><span class="ratio">15.6:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#17113f;color:#ffe81a" aria-hidden="true">Aa</span><span>Focus ring on cell <code>#ffe81a</code> on <code>#17113f</code></span><span class="ratio">14.1:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#17113f;color:#ffe81a" aria-hidden="true">Aa</span><span>Winning scan line <code>#ffe81a</code> on <code>#17113f</code></span><span class="ratio">14.1:1 <span class="visually-hidden">(needs 3:1)</span></span></li><li><span class="chip" style="background:#0c0922;color:#ffe81a" aria-hidden="true">Aa</span><span>Winning cell edge <code>#ffe81a</code> on <code>#0c0922</code></span><span class="ratio">15.6:1 <span class="visually-hidden">(needs 3:1)</span></span></li></ul></section>
+<section><h3>Type</h3><p>Title: <code>system-ui</code> 900, uppercase, wide tracking, with a hard two-step offset shadow like a cabinet marquee. Status: <code>ui-monospace</code> 700, like a score readout. No font files.</p></section>
+<section><h3>Shape</h3><p>Hard and square: 0 radius, 3 px cells with a bevel (light top edge, dark bottom edge), 8-bit pixel marks on a 10 × 10 grid. Buttons are chunky arcade buttons with a thick base.</p></section>
+<section><h3>Motion</h3><p>Stepped, never smooth: the new mark pops in over three frames (240 ms, <code>steps(3)</code>); the winning cells blink twice. Reduced motion: no pop, no blink.</p></section>
+<section><h3>Details</h3><p>The status reads like a high-score line. “Play again” is framed as “INSERT COIN”-style energy but keeps the exact copy.</p><div class="states"><span><button type="button" class="button " tabindex="-1">Play again</button><span class="state-label">Rest</span></span><span><button type="button" class="button is-hover" tabindex="-1">Play again</button><span class="state-label">Hover</span></span><span><button type="button" class="button is-pressed" tabindex="-1">Play again</button><span class="state-label">Pressed</span></span><span><button type="button" class="button is-focused" tabindex="-1">Play again</button><span class="state-label">Focus</span></span></div></section>
+</div>
+</body></html>
