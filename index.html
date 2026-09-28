@@ -8,11 +8,34 @@
   <body>
     <main class="page">
       <h1 class="title">Tic-tac-toe</h1>
+      <noscript>
+        <p class="fallback">
+          This game needs JavaScript, which is turned off in this browser. Turn
+          it on and reload the page.
+        </p>
+      </noscript>
+      <p id="load-error" class="fallback" hidden>
+        The game didn't load. Try reloading the page.
+      </p>
       <p id="status" class="status"></p>
       <div id="board" class="board" role="group" aria-label="Board"></div>
       <div id="actions" class="actions"></div>
       <div id="announcer" class="visually-hidden" role="status"></div>
     </main>
+    <script>
+      // F-011: reveal the load-error message if a script fails to load. Capture
+      // phase, because resource error events do not bubble; kept out of the
+      // module script so it works when the bundle does not (architecture §2).
+      window.addEventListener(
+        "error",
+        (event) => {
+          if (event.target instanceof HTMLScriptElement) {
+            document.getElementById("load-error")?.removeAttribute("hidden");
+          }
+        },
+        true,
+      );
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
