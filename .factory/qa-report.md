@@ -1,6 +1,6 @@
 # QA report: factory-tictactoe, round 2 (Tabletop Tiles restyle and motion)
 
-_Whole change since the last QA, `5ebe604` → `main` @ `661b82e` (F-014 #18, F-015 #19, both merged), plus the QA fixes on `factory/qa-fixes-restyle` (`94ca02a`, `bced0a5`). Date: 2026-09-28. The first QA round is kept below._
+_Whole change since the last QA, `5ebe604` → `main` @ `661b82e` (F-014 #18, F-015 #19, both merged), plus the QA fixes on `factory/qa-fixes-restyle` (`94ca02a`, `bced0a5`, and `d92c991` after Codex reviewed the fixes). Date: 2026-09-28. The first QA round is kept below._
 
 ## For the human (decide or do)
 
@@ -40,6 +40,7 @@ _Whole change since the last QA, `5ebe604` → `main` @ `661b82e` (F-014 #18, F-
 | factory-code-reviewer | APPROVE | 0 / 0 | 5 medium, 9 low. All fixed except CR-3 (part), CR-5 and CR-14 (for-human) and CR-13 (accepted). CR-12 was first accepted, then fixed when it flaked |
 | factory-security-reviewer | FINDINGS (non-blocking) | 0 / 0 | SR-1 medium (checker bypasses) and SR-2 low (favicon request), both fixed. `npm audit`: 0 vulnerabilities; no new dependencies |
 | Codex, whole change `5ebe604..661b82e` | AGREE | 0 / 0 | No findings |
+| Codex, QA fixes `661b82e..7bb3f7c` | AGREE | 0 / 0 | 4 medium, 1 low (CQ-1 to CQ-5), all fixed. No further round, because none was high or critical |
 | Ollama | disabled by the approver | — | — |
 
 Per-feature reviews already ran:
@@ -66,18 +67,23 @@ Per-feature reviews already ran:
 | CR-12 | LOW | code | 600 ms wall-clock deadline test has a thin margin | **fixed** after it flaked on Firefox: it now checks each animation's delay plus duration ≤ 520 ms, then waits for them to finish |
 | CR-13 | LOW | code | First-frame probe compares the live region with itself | **accepted**: exact A3/A6 text is asserted in `announcements.spec.ts`; this test is about timing |
 | CR-14 | LOW | code | iOS `:active` can't be emulated | **for-human**: real-iPhone press check (item 2) |
+| CQ-1 | MEDIUM | Codex (fixes) | A `<script>` tag inside a comment hid a real `<img>` between two comments | **fixed**: comments are stripped before scripts; fixture |
+| CQ-2 | MEDIUM | Codex (fixes) | `&bsol;75 rl(` (named-entity CSS escape) not decoded | **fixed**: `bsol`, `num`, `semi`, `comma` and `equals` added to the shared decoder; fixture. Residual: named entities outside that table are not decoded; the build is ours and `check:origins` still guards R-012 (accepted) |
+| CQ-3 | MEDIUM | Codex (fixes) | Script and style preloads were flagged | **fixed**: preload/prefetch count only for image, font or no destination; fixtures |
+| CQ-4 | MEDIUM | Codex (fixes) | The settle test could be fooled by a slowed playback rate | **fixed**: end times are divided by `playbackRate`. The move-relative wall-clock deadline is not restored, because it flaked (CR-12); the design timing plus the bounded wait cover criterion 3 |
+| CQ-5 | LOW | Codex (fixes) | An out-of-range CSS escape crashed the checker | **fixed**: U+FFFD per CSS; fixture |
 | QA-1 | MEDIUM | QA run | Firefox e2e flake under local full-parallel load: piece-name `expect.poll` 5 s timeouts, about 1 run in 3. Also seen on unchanged `main`; green in CI (#18, #19) and on rerun | **deferred** to the retro as a tooling change (fewer local Firefox workers or a longer expect timeout). Not a product defect |
 
 ## Coverage
 
-- **Unit (Vitest):** 535 passed, 4 skipped. Coverage is from a transient `@vitest/coverage-v8` run, not added to the project:
+- **Unit (Vitest):** 541 passed, 4 skipped. Coverage is from a transient `@vitest/coverage-v8` run, not added to the project:
   - `focus.ts`: 100 % lines.
   - `line-direction.ts`: 94.7 % lines; the uncovered line is the `RangeError` guard.
   - `announcer.ts`: 92 % lines.
   - `check-local-visuals.mjs`: 83 % lines; the uncovered lines are its CLI path, which the tests run as a child process.
   - Game core, `messages.ts`, `new-pieces.ts` and `touch-active.ts`: 100 %.
   - `view.ts` and `main.ts`: 0 % in unit coverage; they are exercised by the e2e suite.
-- **End to end (Playwright):** 645 tests across Chromium, Firefox, WebKit, Android and iPhone emulation; 10 hover and press tests are skipped on the touch-only projects. They cover every F-014 and F-015 criterion: tokens, pieces, the win-line geometry within 1 px, layering pixels, layout at 4 viewports, the reduced-motion and motion timing checks, board stability and the regressions. The final full run had 644 passed and 1 Firefox flake (QA-1), which passed on rerun.
+- **End to end (Playwright):** 645 tests across Chromium, Firefox, WebKit, Android and iPhone emulation; 10 hover and press tests are skipped on the touch-only projects. They cover every F-014 and F-015 criterion: tokens, pieces, the win-line geometry within 1 px, layering pixels, layout at 4 viewports, the reduced-motion and motion timing checks, board stability and the regressions. Each full run in QA had 644 passed and 1 Firefox flake (QA-1), a different test each time, which passed on rerun.
 - **Primary metric (R-003):** unchanged; the exhaustive never-lose test passes (0 computer losses).
 - **Declared and executed coverage:** `validate.sh qa`, 0 findings.
 - **Build guards:** the JS bundle is 3,801 bytes gzipped (limit 51,200). `check:origins` and `check:visuals` (hardened) are clean on `dist/`.

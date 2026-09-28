@@ -33,6 +33,14 @@ Scope: `5ebe604..661b82e` on main (F-014 #18 and F-015 #19, merged), plus the QA
 - **CR-13 (low), accepted:** the first-frame probe compares the live region with its own final text. The exact A3/A6 strings are asserted by `announcements.spec.ts`, and this test's purpose is timing.
 - **CR-14 (low), for the human:** the real-iPhone press check, added to the human follow-ups.
 
+## Codex on the QA fixes (`661b82e..7bb3f7c`, `20260928-053937-…-codex.md`): AGREE
+
+It raised 4 medium findings and 1 low (CQ-1 to CQ-5), all accepted and fixed in `d92c991` with fixtures.
+- CQ-2 is partly residual: named entities outside the table are not decoded (accepted).
+- CQ-4 is fixed by scaling each end time by its playback rate instead of restoring the flaky wall-clock deadline.
+
+There is no further round, because none was high or critical.
+
 ## Conflict resolution
 
 There were no conflicts between reviewers. For CR-3 the approved design contract takes precedence over a naming preference (existing contract beats churn).
