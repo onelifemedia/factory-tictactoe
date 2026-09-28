@@ -2,19 +2,20 @@
 
 _Static browser game on GitHub Pages. No servers, data or secrets. Traces to: R-014, ADR-011, `intent.operations` (uptime: whatever GitHub Pages provides; on call: nobody, acknowledged; alerting: the GitHub Actions failure email to the repo owner)._
 
-## Status (2026-09-28): published to Pages, not reachable; accepted
+## Status (2026-09-28, updated after the Tabletop Tiles restyle): published to Pages, not reachable; accepted
 
 | What | State | Evidence |
 |---|---|---|
-| Pipeline builds and publishes to GitHub Pages | **Works** | Run [36365983395](https://github.com/onelifemedia/factory-tictactoe/actions/runs/36365983395): `prepare`, `build`, `deploy` succeeded for `9a81c23` |
-| Site reachable | **No** | The account's user site `onelifemedia.github.io` has custom domain `onelifemedia.com`, so GitHub 301-redirects `https://onelifemedia.github.io/factory-tictactoe/` to `http://onelifemedia.com/factory-tictactoe/`. `onelifemedia.com` resolves to `104.247.81.99`, which is not GitHub Pages, and returns **410 Gone**; HTTPS there fails. |
-| Live smoke test (build-id wait + one move) | **Unverified** | It timed out in run 36365983395 because the site is unreachable |
+| Pipeline builds and publishes to GitHub Pages | **Works** | Run [36365983395](https://github.com/onelifemedia/factory-tictactoe/actions/runs/36365983395): `prepare`, `build`, `deploy` succeeded for `9a81c23`. Same result for every later merge: [36399401175](https://github.com/onelifemedia/factory-tictactoe/actions/runs/36399401175) (F-014, `7a90928`), [36400631269](https://github.com/onelifemedia/factory-tictactoe/actions/runs/36400631269) (F-015, `661b82e`) and [36407314972](https://github.com/onelifemedia/factory-tictactoe/actions/runs/36407314972) (QA round 2, `a1ba815`) |
+| Every Deploy run | **Fails at the smoke test** | The account's user site redirects to `onelifemedia.com` (next row), so the smoke test's 3-minute wait for the new `build-id` times out (Playwright 240 s test timeout). Rollback then fails because no earlier run has both deploy and smoke succeeded. The Actions failure email goes to the repo owner each time. Re-checked 2026-09-28 10:08 UTC |
+| Site reachable | **No** | The account's user site `onelifemedia.github.io` has custom domain `onelifemedia.com`, so GitHub 301-redirects `https://onelifemedia.github.io/factory-tictactoe/` to `http://onelifemedia.com/factory-tictactoe/`. `onelifemedia.com` resolves to `104.247.81.99`, which is not GitHub Pages, and returns **410 Gone**; HTTPS there fails. Re-checked 2026-09-28: unchanged (301 → 410; Pages `html_url` `http://onelifemedia.com/factory-tictactoe/`, repository `cname` none) |
+| Live smoke test (build-id wait + one move) | **Unverified** | It timed out in run 36365983395 and in every run since, because the site is unreachable |
 | Automatic rollback (redeploy the last good build) | **Unverified** | No earlier run has both deploy and smoke succeeded, so there is nothing to roll back to. In run 36365983395 the rollback correctly logged "No earlier successful deploy to roll back to" and failed. The forced-failure run (`force_smoke_failure=true`) was **not** run, by decision. |
 | Stale-commit skip | **Verified live** | A full re-run (attempt 2) of run [36362932541](https://github.com/onelifemedia/factory-tictactoe/actions/runs/36362932541) for `87bb290`: `prepare` logged "no longer the latest commit on main (9a81c23…)"; build, deploy, smoke and rollback were skipped; the run succeeded with nothing published |
 | Pages settings | Enabled, source "GitHub Actions" | `gh api repos/onelifemedia/factory-tictactoe/pages` |
-| `github-pages` environment | No required reviewers; deployment branches `main` only | Checked through the API; no change was needed |
+| `github-pages` environment | No required reviewers; deployment branches `main` only | Checked through the API (protection rule: branch policy only), again on 2026-09-28; no change was needed |
 
-**Decision D-71851f1132844a86b5bd7a803399b03c:** Jim chose to leave the site undeployed. No DNS, user-site or account setting was changed, and the forced rollback was not run.
+**Decision D-71851f1132844a86b5bd7a803399b03c:** Jim chose to leave the site undeployed. No DNS, user-site or account setting was changed, and the forced rollback was not run. Reconfirmed for the restyle release on 2026-09-28 (Claude, test operator, authorized by Jim Gibbs): the same decision and the same limits. Nothing was deployed by hand; the automatic runs above are the pipeline reacting to merges.
 
 ## Accepted risks
 
@@ -24,7 +25,13 @@ _Static browser game on GitHub Pages. No servers, data or secrets. Traces to: R-
    - remove the user site's custom domain
    - move the repository to another account
 2. **The live smoke test and the automatic rollback are unverified in production.** They are covered by unit and harness tests only: `tests/unit/smoke-harness.test.ts`, `deploy-decisions.test.ts`, `deploy-workflow.test.ts`, `require-latest-main.test.ts` and `find-rollback-run-cli.test.ts`. Once the site is reachable, verify them with a normal deploy, then `gh workflow run deploy.yml --ref main -f force_smoke_failure=true`.
-3. **The human follow-ups from QA stay open:** a real VoiceOver pass, and a real-device check on iOS Safari and Android Chrome.
+3. **The human follow-ups from QA stay open:**
+   - a real VoiceOver pass;
+   - a real-device check on iOS Safari and Android Chrome, now also covering the Tabletop Tiles look and reduced motion;
+   - new with F-015: on a real iPhone, pressing a tile or button visibly sinks it (`:active` via the passive `touchstart` listener).
+
+   See `.factory/qa-report.md` (round 2).
+4. **Failure emails on every merge.** Until the domain is fixed, each merge to `main` produces a failed Deploy run and an email. This is expected, not an incident: check that `prepare`, `build` and `deploy` succeeded and that the smoke test timed out, rather than failing an assertion.
 
 ## Where things are
 
@@ -93,7 +100,7 @@ gh workflow run deploy.yml --ref main -f force_smoke_failure=true
 1. **The site is unreachable at the account's custom domain** (seen on the first deploy, 2026-09-28; accepted, see "Accepted risks"):
    - The `onelifemedia.github.io` user site has custom domain `onelifemedia.com`, so Pages redirects this project there.
    - `onelifemedia.com` resolves to `104.247.81.99` (not GitHub Pages), which returns **410 Gone**, and HTTPS fails.
-   - The smoke test times out and the run fails (run 36365983395).
+   - The smoke test times out and the run fails (run 36365983395, and every run since, most recently 36407314972 for `a1ba815`).
    - Fix at the account or DNS level. Decision D-71851f1132844a86b5bd7a803399b03c: left undeployed for now.
 2. **Pages disabled:** `deploy` fails with "Ensure GitHub Pages has been enabled" (404).
 3. **Artifact expired:** the rollback target's artifact is older than 90 days, so rollback logs it and fails. Revert manually.
@@ -101,6 +108,8 @@ gh workflow run deploy.yml --ref main -f force_smoke_failure=true
 5. **GitHub API errors:** `gh api` calls time out after 30 s and retry once. Rollback exits 2 with "GitHub API request failed". Retry later.
 6. **More than 100 pending deploy runs:** GitHub cancels the overflow. Re-run the deploy for main's latest commit.
 7. **actionlint and `queue`:** actionlint 1.7.12 doesn't know `concurrency.queue`. CI ignores exactly that diagnostic.
+8. **`check:visuals` fails in CI** (F-014, R-013): the build contains a font or image file, an `@font-face`/`@import`/`image-set()`, a file `url()`, an image element or attribute, an icon or preload link to a file, or a `<use>` pointing outside the page. The log names the file and the reference. The fix is to draw the visual in CSS or inline SVG; the empty `data:,` icon in `index.html` is the only allowed icon link.
+9. **Firefox e2e flake under local load** (QA-1): an `expect.poll` 5 s timeout, usually in `announcements.spec.ts`, fails about 1 run in 3 locally and passes on rerun; CI has been green. It is not a product failure. Rerun it, and see the retro for the tooling fix.
 
 ## Incident template
 
