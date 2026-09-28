@@ -1,4 +1,196 @@
-# Retrospective: factory-tictactoe
+# Retrospective 2: factory-tictactoe, redesign cycle (2026-09-28)
+
+_A test of the plugin's updated design phase (0.9.0) on the finished project. The cycle ran from reopening design (02:33 UTC) to the deploy approval (10:11 UTC). It covered the design personality, a specification amendment, three direction boards, direction C "Tabletop Tiles", a planning rework, F-014 and F-015, QA round 2, CI and deploy. Sources: `metrics.sh` (whole project), cycle-scoped events in `.factory/state.json` (from 06:58), the cost ledger, `.factory/reviews/20260928-*`, the QA report, git history (#18, #19, #20, #21), and this session's transcript. The first build's retro follows below._
+
+## 1. Metrics
+
+**Whole project** (`metrics.sh`, targets from `config.json`):
+
+| Measure | Actual | Target | Met? |
+|---|---|---|---|
+| First-run pass rate | **0.60** (9 of 15 without a failed run-fix cycle; F-014 and F-015 both had one) | 0.5 | yes |
+| Average attempts per feature | **0.53** (F-014 2, F-015 1, plus the first build's 5) | 1.0 | yes |
+| Interventions per feature | **0.53** (8 recorded) | 1.0 | yes, but undercounted again (see below) |
+| Rework | 5 (3 of them in this cycle: reopen design, reopen specification, reopen inception) | — | — |
+| Cost | **$108.97**, $7.26 per feature (an average) | budget $150 | 73 % used |
+
+**The redesign cycle alone** (from the ledger's cost checkpoints; each phase is the difference between the stops around it):
+
+| Step | Cost | Notes |
+|---|---|---|
+| Design reopen, personality interview, conflict detected (previous session) | $8.62 | $70.69 → $79.31; stopped on decision D-4ff09b26 |
+| Specification amendment, Codex, re-approval of intent and specification | ~$0.51 | 1 Codex run; 2 medium (1 accepted, 1 deferred to design) |
+| **Three direction boards** | **$1.18** | a generator with a built-in contrast check; screenshots checked before presenting |
+| Design system, tokens v2, 3 screens, UX review and 2 Codex passes | $4.31 | UX review found 1 high (no board floor) that the boards didn't show |
+| Planning rework (F-014, F-015) and Codex plan review | $1.31 | 2 high findings, both accepted |
+| Implementation of F-014 and F-015 (spec reviews, TDD, diff reviews, PRs, CI waits) | $10.38 | 3 failed fix cycles, all engine-specific CSS behaviour |
+| QA round 2 (3 reviewers, fixes, Codex on the fixes, report) | $10.39 | about as much as implementation; includes a 7-command safety-check stall |
+| CI gate and deploy phase | $1.58 | evidence for 16 units; runbook status |
+| **Cycle total** | **≈ $38.28** | 35 % of the project's cost for 2 of its 15 features |
+
+**What the metrics can't see, or get wrong:**
+- **Interventions:** only 8 are recorded. In this cycle the human also:
+  - approved 7 gates (intent, PRD and architecture together, design, plan, QA, deploy) plus the direction choice;
+  - reviewed screenshots and merged 3 pull requests;
+  - answered "continue" after the safety-check stall;
+  - reconfirmed the undeployed-site decision.
+
+  A truer count for the cycle is about 14 across 2 features.
+- **Phase hours** are wall-clock time between transitions, idle time included. "improve 4.46 h" is mostly the idle gap after the first retro, and "design 0.75 h" includes the overnight wait for the decision. They are not effort.
+- **The reviewer scorecard misses most of this cycle's reviews.** Only 3 of this cycle's review-result events exist (the F-014 diff, the F-015 diff and the QA fixes). The spec amendment, screens, design system, plan, both feature specs and the whole-change QA review were never recorded. So the scorecard says "rejected 0", although one Codex finding was rejected (the design-system wording, spec amendment C2).
+- **Security:** QA round 2 found 0 critical and 0 high issues.
+  - 1 medium (bypasses of the R-013 visuals checker) and 1 low (the favicon request), both fixed.
+  - Codex's review of those fixes found 4 more medium issues and 1 low, all fixed.
+  - `npm audit`: 0 vulnerabilities.
+- **Product outcome:**
+  - The primary metric (0 computer losses) and every automated accessibility check still hold after the restyle.
+  - The live URL still doesn't load: every Deploy run fails at the smoke test because of the account's custom domain. The site was left undeployed by decision.
+
+## 2. What worked / what didn't
+
+**Worked**
+- **The direction-exploration step paid for itself.** It cost $1.18, was chosen on the first round ("C, as shown"), and produced three distinct directions. That makes it the cheapest design phase in either cycle. Contrast was validated in the generator, so no board shipped with a failing pair, and each board was screenshotted and fixed before being shown (the bar covering the O pieces, labels touching the frame).
+- **The design entry gate caught the "plain" conflict before any drawing.** The new personality contradicted approved text (R-013 "plain", PRD §1, the intent). The gate blocked, and a decision with a recommended option resolved it in one message. The amendment kept every testable constraint and added one ("CSS or inline SVG only"), which Codex then tightened (C1).
+- **Pre-code spec reviews caught what diff reviews would have missed.**
+  - F-014 spec: 3 findings, among them "hiding ≠ no piece" and the stale overlay after Play again.
+  - F-015 spec: 8 findings, among them the transition that traps the piece, the lift that didn't deepen the edge, and a timing harness.
+  - Diff reviews then found only test-quality or scanner issues (3 medium). This matches the first build's lesson.
+- **Every accessibility and behaviour guarantee survived a full visual rewrite.** The existing announcement, keyboard, focus, axe, layout, load-error and never-lose suites kept passing, with only the mark-reading and strike helpers changed, and the browser suite grew to 645 tests. Board stability, contrast by class, the win-line geometry within 1 px, and pixel checks of layering all became executable acceptance criteria.
+- **Committing the design approval on the restyle branch avoided breaking main.** tokens.json v2 would have failed the token and contrast tests on main; carrying the approval on F-014's branch kept main green.
+
+**Didn't**
+- **The amendment path needed three reopens for one conceptual change.** Design, then specification, then inception, because `gate approve intent` requires phase inception even when the intent changed as part of an authorized specification rework. Nothing was lost, but it's confusing and adds a step (see §5).
+- **The boards couldn't show what the design review later found.** The UX review of the rebuilt design found 1 high issue (no board floor, so tiles spilled on short screens) and 6 medium: disabled vs active, the fold at 320×568, and drop opacity hiding pieces. None showed on a single desktop screenshot of each board. Boards are for choosing a direction, not for validating it, and the design system review did its job; but a phone-size frame on the board would have surfaced the fold earlier.
+- **QA cost as much as implementation ($10.39 vs $10.38).**
+  - A regex-based build scanner (the R-013 check) drew two rounds of bypass findings (security, then Codex on the fixes).
+  - A local Firefox flake (QA-1) cost several full-suite reruns plus a check on unchanged main.
+  - A 7-command stall of the auto-mode safety check stopped the session once.
+- **Engine-specific CSS behaviour caused all 3 failed fix cycles.**
+  - WebKit doesn't resolve a percentage height inside `<button>`: the pieces were small and off-centre.
+  - A disabled square falls back to `transition-property: all`, so browsers don't cancel a running transition.
+  - Verdana at 200 % text clipped a 1.1 line height.
+
+  Each was caught by an existing or new test, so the suite worked. The mockups were rendered only in Chromium.
+- **Agents hit their turn limits.** The F-014 test writer stopped at 25 turns and the QA code reviewer at 20; both had to be resumed to deliver their reports. Also, the plugin's proposal from the first retro (to scope phase metrics and record review events for every phase) is still unimplemented, which is why this cycle's metrics needed manual work.
+
+## 3. Reviewer scorecard
+
+`metrics.sh` (whole project): Codex 44 runs (AGREE 25, AGREE-WITH-CONCERNS 13, NONCONFORMING 3, SKIPPED 3), 67 accepted, 0 rejected, 0 critical; Ollama 2 runs, unusable output (disabled since the first build).
+
+This cycle, counted from the review files, because most weren't recorded as events:
+
+| Reviewer | Runs | Verdicts | Findings (critical / high / medium / low / missing) | Accepted | Rejected | Worth it? |
+|---|---|---|---|---|---|---|
+| Codex | 10 (spec amendment, screens, design system, plan, F-014 spec and diff, F-015 spec and diff, QA whole change, QA fixes) | 9 AGREE, 1 AGREE-WITH-CONCERNS (plan) | 0 / 2 / 19 / 2 / 9 | 31 | 1 (design wording, deferred to the design rework) | **Yes.** Each run took a few minutes (not measured). The plan's 2 highs (contrast exception, unit test before the build) would have broken CI. The whole-change review found nothing, which is itself useful confirmation after four per-unit reviews |
+| factory-ux-reviewer | 1 | REQUEST-CHANGES | 0 / 1 / 6 / 8 / 0 | 15 | 0 | **Yes.** The board floor (high) and the drop-opacity delay were real usability defects that no board or screenshot showed |
+| factory-code-reviewer (QA) | 1 (resumed once) | APPROVE | 0 / 0 / 5 / 9 / 0 | 11 fixed, 1 accepted, 2 for the human | 1 partial (CSS class rename) | **Moderate.** Mostly naming. Its thin-margin warning (CR-12) was right and flaked the same day. Its architecture-drift list is the most complete record of that drift |
+| factory-security-reviewer (QA) | 1 | FINDINGS (non-blocking) | 0 / 0 / 1 / 1 / 0 | 2 | 0 | **Yes, briefly.** It showed nine concrete checker bypasses in a scratch build within about a minute |
+
+## 4. Skill gaps
+
+- **`factory:screenshots`: visual evidence for UI pull requests.** The human merged #18 and #19 "after reviewing screenshots of the built app", but the factory attaches none; I took screenshots ad hoc to check boards and screens. The proposed skill would:
+  - build the app and capture every state in `design/screens.md` at the phone and desktop frames, in Chromium and WebKit;
+  - put the images in the pull request, as a comment or artifact, next to the matching mockup;
+  - flag pixel-level divergence from the mockup's key regions (tray, pieces, win line) as a review hint, not a gate.
+
+  It would have caught the WebKit piece-sizing bug before the tests did, and it saves the reviewer from building locally.
+- **`factory:rework`: one entry point for a change to a finished project.** This cycle chained design reopen → decision → specification reopen → inception reopen → design → planning rework → implementation → QA round 2 → CI → deploy, by hand, with the skill for each step. The proposed skill would:
+  - take the requested change;
+  - find the earliest affected artifact by diffing the request against approved text (the "plain" conflict was found only at the design entry gate);
+  - propose the exact reopen chain and which approvals go stale;
+  - estimate cost from this project's history (a UI restyle of 2 features ≈ $38 here);
+  - scope the QA round to the change (`--base` the last QA merge);
+  - scope metrics to the cycle.
+- **Cycle-scoped metrics (`metrics.sh --since <event-id|timestamp>`).** Per-cycle cost, attempts, interventions and reviewer results currently need hand-written queries over `state.json`. The proposed option would filter events and cost checkpoints from a given point and report the same table plus cost per phase, computed from the cost checkpoints at phase transitions.
+
+## 5. Proposed changes to this plugin (not applied; for the maintainer)
+
+```
+scripts/factory_state.py / gates.py
+  + Allow `gate approve intent` while the phase is specification when the
+    reopen reason or a resolved decision authorized an intent change (or add
+    `reopen specification --with-intent`), instead of requiring a separate
+    `reopen inception`. Today one amendment needed three reopens.
+
+scripts/second-opinion.sh (and skills/second-opinion/SKILL.md)
+  + Emit a review-result event for every phase (prd, architecture, design
+    screens/system, plan, feature spec, diff, QA), not only diffs. The
+    scorecard missed 7 of 10 Codex runs in this cycle and reports 0 rejected
+    although 1 was rejected.
+
+scripts/metrics.sh
+  + `--since <timestamp|event-id>` for cycle-scoped metrics and cost per phase
+    (from cost.recorded totals at phase.changed boundaries).
+  + Label phase hours "elapsed (includes idle)" or compute active time from
+    event density; "improve 4.46 h" was an overnight gap.
+
+skills/design/SKILL.md
+  + directions: render each board at phone width (320×568) as well as the
+    desktop moment; the fold and board-floor issues found later were
+    phone-only.
+  + directions: ship a contrast-checked board generator or at least require
+    the ratios on the board to be computed (as gen_directions.py did), and
+    require screenshotting each board before presenting.
+  + Rework on a built product: detect artifacts consumed by tests (tokens.json
+    read by tokens.test/contrast.test) and say up front that the design
+    approval must travel on the implementing feature's branch, and that
+    planning needs a restyle feature. Record the tokens version bump.
+  + Mockups: render in Chromium and WebKit when checking them; note known
+    engine traps in the design system (percentage heights inside <button>,
+    transition-property fallback on disabled elements).
+
+skills/implement/SKILL.md
+  + For M-sized UI features, tell the test-writer to batch writes and allow a
+    higher turn budget, or split red into unit and e2e passes; the F-014
+    test-writer and the QA code-reviewer both stopped at their turn limits
+    with no report.
+  + Visual guards: prefer a runtime assertion (network requests by resource
+    type) as the primary check, and keep regex scans of build output as
+    defence in depth with fixture tests for each bypass class; the R-013
+    scanner drew 1 medium + 4 medium + 1 low across two reviews.
+
+skills/review/SKILL.md
+  + Run the second opinion on the QA-fixes range before presenting QA (merge
+    routing flagged "no second opinion" and Codex then found 5 issues).
+  + Flake protocol: on an intermittent failure, rerun the test alone
+    (--repeat-each), run the same project on unchanged main in a worktree to
+    classify it, record it as a QA finding with its rate, and never loosen
+    timeouts silently.
+  + Scope option: QA "since the last QA merge" as a first-class base
+    (artifacts.change.base stays the project start for traceability).
+
+skills/deploy/SKILL.md
+  + When the site is knowingly unreachable and the human keeps it undeployed,
+    offer to gate the smoke/rollback jobs behind a repository variable (for
+    example `PAGES_REACHABLE`) so every merge does not produce a failed run
+    and an email; record the choice in the runbook. (Not done here, by
+    decision.)
+
+skills/factory-core/SKILL.md
+  + Finishing a turn: if the tool safety check returns no verdict repeatedly,
+    stop before the hard limit, list uncommitted work and the exact resume
+    point, and do not retry blindly (what happened at 7 consecutive no-verdict
+    responses).
+  + When a report cites a commit, take the hash from `git log` after the
+    commit, never predict it (a guessed hash had to be corrected in the QA
+    report).
+
+config.json (template)
+  + metrics.targets: add cycle_cost_usd and qa_to_implementation_cost_ratio
+    (this cycle 1.0) so rework cost is judged, not just pass rates.
+```
+
+## Outcome
+
+- **Tabletop Tiles is merged** (#18, #19, #20): SVG pieces, a single win line, and tactile motion that is removed under reduced motion. All 645 browser tests pass, the bundle is 3.8 KB gzipped, and every accessibility guarantee still holds.
+- **The design phase's direction exploration worked on the first round** and was the cheapest step in the cycle.
+- **Human follow-ups are still open:** a VoiceOver pass, real iOS and Android device checks, and the new real-iPhone press check.
+- **The site stays unreachable** until `onelifemedia.com` or the user site's custom domain changes (decision D-71851f11).
+- **The deploy approval and runbook** are in #21. This retro is its own pull request.
+
+---
+
+# Retrospective 1: factory-tictactoe, first build (2026-09-27/28)
 
 _Live end-to-end test of the Software Factory plugin (0.7.x → 0.8.5 during the run). Idea to approved deploy phase on 2026-09-27/28. Sources: `metrics.sh` (and `--json`), `.factory/state.json` events, `.factory/reviews/`, the QA report, the runbook, and git history._
 
