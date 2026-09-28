@@ -553,36 +553,9 @@ describe("deploy decision CLIs (F-013 R-014)", () => {
     expect(readRefusal(parseStandardOutput(result))).toMatch(/in.progress/i);
   });
 
-  it("select-rollback-run prints { runId } and exits 0 when a good deploy exists (F-013 R-014)", () => {
-    const inputPath = writeInputFile({
-      runs: [createDeployRun(40, "failure"), createDeployRun(20, "success")],
-      jobsByRunId: { "40": smokeFailedJobs(), "20": goodDeployJobs() },
-      currentRunId: 40,
-    });
-
-    const result = runDeployScript("select-rollback-run.mjs", [inputPath]);
-
-    expect(result.status).toBe(0);
-    expect(parseStandardOutput(result)).toEqual({ runId: 20 });
-  });
-
-  it("select-rollback-run prints { runId: null } and exits 1 when no run is eligible (F-013 R-014)", () => {
-    const inputPath = writeInputFile({
-      runs: [createDeployRun(40, "failure")],
-      jobsByRunId: { "40": smokeFailedJobs() },
-      currentRunId: 40,
-    });
-
-    const result = runDeployScript("select-rollback-run.mjs", [inputPath]);
-
-    expect(result.status).toBe(1);
-    expect(parseStandardOutput(result)).toEqual({ runId: null });
-  });
-
   for (const scriptName of [
     "decide-deployment.mjs",
     "resolve-dispatch-sha.mjs",
-    "select-rollback-run.mjs",
   ]) {
     it(`${scriptName} exits non-zero with a message on a missing or malformed input file (F-013 R-014)`, () => {
       const malformedDirectory = mkdtempSync(
@@ -642,6 +615,42 @@ describe("deploy decisions review follow-ups (F-013 R-014)", () => {
     ];
     const runId = await findRollbackRun({
       fetchRunsPage: (pageNumber: number) => (pageNumber === 1 ? runs : []),
+      fetchJobs: () => goodDeployJobs(),
+      currentRunId: 99,
+      pageSize: PAGE_SIZE,
+    });
+
+    expect(runId).toBe(10);
+  });
+});
+
+// QA code review (LOW): in production a missing field is not eligible.
+describe("deploy decisions QA follow-ups (F-013 R-014)", () => {
+  it("does not count a CI run without event or branch fields for a dispatch", () => {
+    const {
+      event: _event,
+      head_branch: _branch,
+      ...bareRun
+    } = createCiRun(31, MAIN_TIP_SHA, "completed", "success");
+    const resolution = resolveDispatchSha({
+      mainTipSha: MAIN_TIP_SHA,
+      ciRuns: [bareRun],
+    });
+
+    expect(resolution).not.toHaveProperty("sha");
+  });
+
+  it("skips a deploy run without branch or status fields while paging", async () => {
+    const { head_branch: _branch, ...noBranch } = createDeployRun(
+      30,
+      "success",
+    );
+    const { status: _status, ...noStatus } = createDeployRun(20, "success");
+    const runId = await findRollbackRun({
+      fetchRunsPage: (pageNumber: number) =>
+        pageNumber === 1
+          ? [noBranch, noStatus, createDeployRun(10, "success")]
+          : [],
       fetchJobs: () => goodDeployJobs(),
       currentRunId: 99,
       pageSize: PAGE_SIZE,

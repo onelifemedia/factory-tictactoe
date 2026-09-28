@@ -245,4 +245,33 @@ describe("deploy.yml (F-013 R-014)", () => {
       /^\s*artifact_name:\s*["']?github-pages-rollback["']?\s*$/m,
     );
   });
+
+  // QA security review (LOW): only CI triggered by a push to this repository
+  // may start a deploy.
+  it("starts prepare only for CI runs triggered by a push in this repository", () => {
+    const condition = readJobKey("prepare", "if");
+
+    expect(condition).toContain("github.event.workflow_run.event == 'push'");
+    expect(condition).toContain(
+      "github.event.workflow_run.head_repository.full_name == github.repository",
+    );
+  });
+
+  // QA security review (LOW): actions pinned by commit SHA, images by digest.
+  it("pins every action by full commit SHA and every container by digest", () => {
+    const ciText = readFileSync(
+      path.join(path.dirname(workflowPath), "ci.yml"),
+      "utf8",
+    );
+    const usesLines = `${workflowText}\n${ciText}`
+      .split(/\r?\n/)
+      .filter((line) => /^\s*(-\s*)?uses:/.test(line));
+
+    expect(usesLines.length).toBeGreaterThan(0);
+    for (const line of usesLines) {
+      expect(line).toMatch(
+        /uses:\s*(?:[\w.-]+\/[\w.-]+@[0-9a-f]{40}|docker:\/\/[^\s@]+@sha256:[0-9a-f]{64})(\s|$)/,
+      );
+    }
+  });
 });
