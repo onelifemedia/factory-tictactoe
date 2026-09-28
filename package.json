@@ -20,7 +20,8 @@
     "test:e2e": "playwright test",
     "prepare": "git config core.hooksPath .githooks",
     "check:size": "node scripts/check-bundle-size.mjs dist",
-    "check:origins": "node scripts/check-build-origins.mjs dist"
+    "check:origins": "node scripts/check-build-origins.mjs dist",
+    "check:visuals": "node scripts/check-local-visuals.mjs dist"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

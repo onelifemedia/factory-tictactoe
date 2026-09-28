@@ -31,6 +31,8 @@ jobs:
         run: npm run check:size
       - name: No references to other origins (R-012)
         run: npm run check:origins
+      - name: No font or image files; visuals are CSS and inline SVG (R-013)
+        run: npm run check:visuals
       # F-013: lint every workflow. actionlint 1.7.12 does not know GitHub's
       # concurrency `queue` key yet, so exactly that diagnostic is ignored;
       # tests/unit/deploy-workflow.test.ts checks the concurrency block itself.

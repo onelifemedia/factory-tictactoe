@@ -1,52 +1,94 @@
-/* F-001: design tokens from .factory/design/tokens.json (checked by tests/unit/tokens.test.ts). */
+/* F-001, F-014: design tokens from .factory/design/tokens.json (version 2,
+   direction C "Tabletop Tiles"), one custom property per token (checked by
+   tests/unit/tokens.test.ts). Shadows are included; breakpoints are media
+   queries. */
 :root {
-  --color-surface: #ffffff;
-  --color-surface-sunken: #f2f2f2;
-  --color-text: #111111;
-  --color-text-muted: #3d3d3d;
-  --color-primary: #0b3d91;
-  --color-on-primary: #ffffff;
-  --color-border: #3d3d3d;
-  --color-border-disabled: #595959;
-  --color-focus: #0b3d91;
-  --color-win-surface: #fff3b0;
-  --color-win-marker: #111111;
+  --color-surface: #f3e8d4;
+  --color-surface-tile: #fffaf0;
+  --color-surface-sunken: #ecdfc6;
+  --color-board-well: #e3cfae;
+  --color-tile-edge: #c6a57b;
+  --color-text: #2b1d13;
+  --color-text-muted: #4f3b2b;
+  --color-primary: #0b5b62;
+  --color-primary-hover: #08494f;
+  --color-primary-edge: #06363a;
+  --color-on-primary: #fffaf0;
+  --color-border: #7a5f44;
+  --color-border-disabled: #7a5f44;
+  --color-focus: #2b1d13;
+  --color-mark-x: #b3261e;
+  --color-mark-o: #0b5b62;
+  --color-win-surface: #ffd766;
+  --color-win-edge: #b98d1c;
+  --color-win-marker: #2b1d13;
   --font-family:
     system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
+  --font-family-display:
+    ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
   --font-size-small: 0.875rem;
   --font-size-body: 1rem;
+  --font-size-button: 1.125rem;
   --font-size-status: 1.125rem;
-  --font-size-display: 1.75rem;
-  --font-size-mark: clamp(2rem, 18cqi, 4rem);
+  --font-size-display: 2.25rem;
+  --font-size-display-narrow: 1.75rem;
   --font-line-small: 1.4;
   --font-line-body: 1.5;
   --font-line-status: 1.4;
-  --font-line-display: 1.2;
-  --font-line-mark: 1;
+  --font-line-display: 1.1;
+  --font-line-button: 1.4;
   --font-weight-regular: 400;
+  --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --font-weight-heavy: 800;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
+  --radius-tile: 18px;
+  --radius-tray: 26px;
+  --radius-pill: 999px;
+  --shadow-tile:
+    0 6px 0 var(--color-tile-edge), 0 8px 10px rgba(84, 56, 26, 0.25);
+  --shadow-tile-resting: 0 2px 0 var(--color-tile-edge);
+  --shadow-tile-pressed: 0 2px 0 var(--color-tile-edge);
+  --shadow-tile-win:
+    0 9px 0 var(--color-win-edge), 0 12px 16px rgba(84, 56, 26, 0.3);
+  --shadow-tray: inset 0 3px 8px rgba(84, 56, 26, 0.25);
+  --shadow-button: 0 5px 0 var(--color-primary-edge);
+  --shadow-button-pressed: 0 1px 0 var(--color-primary-edge);
+  --shadow-mark: drop-shadow(0 2px 0 rgba(43, 29, 19, 0.28));
+  --motion-press: 80ms ease-out;
+  --motion-drop: 280ms cubic-bezier(0.3, 1.6, 0.5, 1);
+  --motion-lift: 240ms ease-out;
+  --motion-lift-delay: 280ms;
   --size-page-max: 28rem;
-  --size-board-max: min(100%, 360px, 50svh);
-  --size-square-gap: 8px;
+  --size-board-max: max(180px, min(100%, 360px, 45svh));
+  --size-tray-padding: 12px;
+  --size-square-gap: 12px;
+  /* Kept on one line so the value matches tokens.json exactly. */
+  /* prettier-ignore */
+  --size-win-line-inset: calc(var(--size-tray-padding) - var(--size-square-gap) / 2);
   --size-border: 2px;
   --size-border-win: 4px;
-  --size-win-line: 6px;
+  --size-win-line: 12px;
+  --size-press-depth: 4px;
+  --size-lift-height: 3px;
+  --size-mark-inset: 14%;
   --size-status-min-lines-narrow: 3;
   --size-status-min-lines-wide: 2;
-  --size-actions-min-height-narrow: calc(2 * 44px + 12px);
-  --size-actions-min-height-wide: 44px;
+  --size-actions-min-height-narrow: calc(2 * 44px + 12px + 5px);
+  --size-actions-min-height-wide: calc(44px + 5px);
+  --size-button-edge: 5px;
+  --size-button-padding-inline: 22px;
+  --size-button-padding-inline-compact: 16px;
   --a11y-min-target: 44px;
   --a11y-focus-ring: 3px solid var(--color-focus);
-  --a11y-focus-offset: 2px;
-  --motion-fast: 0ms;
+  --a11y-focus-offset: 3px;
+  --a11y-focus-offset-button: 6px;
 }
 
 *,
@@ -73,25 +115,23 @@ body {
   gap: var(--space-4);
 }
 
-@media (min-width: 480px) {
-  .page {
-    padding: var(--space-5);
-  }
-}
-
 .title {
   margin: 0;
-  font-size: var(--font-size-display);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-display-narrow);
   line-height: var(--font-line-display);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-heavy);
+  /* The tight display line height clips tall fallback fonts' descenders
+     (Verdana at 200% text, F-010 test); this keeps them inside the box. */
+  padding-block-end: 0.1em;
 }
 
-/* F-006: status line, board, squares, buttons and the action area (design/screens). */
+/* F-006, F-014: status line, board, squares, buttons and the action area (design/screens). */
 .status {
   margin: 0;
   font-size: var(--font-size-status);
   line-height: var(--font-line-status);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   min-height: calc(
     var(--size-status-min-lines-narrow) * var(--font-line-status) * 1em
   );
@@ -101,12 +141,20 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  width: min(100%, 360px);
+  width: min(100%, var(--size-board-max));
   margin: 0 auto;
   min-height: var(--size-actions-min-height-narrow);
 }
 
 @media (min-width: 480px) {
+  .page {
+    padding: var(--space-5);
+  }
+
+  .title {
+    font-size: var(--font-size-display);
+  }
+
   .status {
     min-height: calc(
       var(--size-status-min-lines-wide) * var(--font-line-status) * 1em
@@ -124,15 +172,24 @@ body {
   gap: var(--space-3);
 }
 
+/* Teal pill with a wooden-style edge underneath (box-shadow), exactly 44 px
+   tall at default text size so the action area's reserve holds. */
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: var(--a11y-min-target);
   min-width: var(--a11y-min-target);
-  padding: var(--space-2) var(--space-4);
-  border: var(--size-border) solid var(--color-primary);
-  border-radius: var(--radius-md);
+  margin: 0 0 var(--size-button-edge);
+  padding: 0 var(--size-button-padding-inline);
+  border: 0;
+  border-radius: var(--radius-pill);
   background: var(--color-primary);
   color: var(--color-on-primary);
+  box-shadow: var(--shadow-button);
   font: inherit;
+  font-size: var(--font-size-button);
+  line-height: var(--font-line-button);
   font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
@@ -143,42 +200,65 @@ body {
 .choice .button {
   flex: 1 0 auto;
   max-width: 100%;
+  padding-inline: var(--size-button-padding-inline-compact);
 }
 
 .button:hover {
-  text-decoration: underline;
+  background: var(--color-primary-hover);
 }
 
-.button:focus-visible,
+.button:active {
+  box-shadow: var(--shadow-button-pressed);
+}
+
+/* The button ring sits outside its 5 px edge; a tile's ring lands on the tray. */
+.button:focus-visible {
+  outline: var(--a11y-focus-ring);
+  outline-offset: var(--a11y-focus-offset-button);
+}
+
 .square:focus-visible {
   outline: var(--a11y-focus-ring);
   outline-offset: var(--a11y-focus-offset);
 }
 
+/* The board is the tray the tiles sit in. It is positioned so the win line can
+   overlay it, and hidden while it has no squares (no JavaScript or a failed
+   start), where only the fallback message shows. */
 .board {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--size-square-gap);
+  padding: var(--size-tray-padding);
   width: var(--size-board-max);
   aspect-ratio: 1;
   margin: 0 auto;
-  container-type: inline-size;
+  border-radius: var(--radius-tray);
+  background: var(--color-board-well);
+  box-shadow: var(--shadow-tray);
+}
+
+.board:empty {
+  display: none;
 }
 
 .square {
   position: relative;
+  top: 0;
+  display: grid;
+  place-items: center;
   min-width: var(--a11y-min-target);
   min-height: var(--a11y-min-target);
   aspect-ratio: 1;
-  padding: 0;
+  margin: 0;
+  padding: var(--size-mark-inset);
   border: var(--size-border) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
+  border-radius: var(--radius-tile);
+  background: var(--color-surface-tile);
   color: var(--color-text);
+  box-shadow: var(--shadow-tile);
   font: inherit;
-  font-size: var(--font-size-mark);
-  line-height: var(--font-line-mark);
-  font-weight: var(--font-weight-bold);
   cursor: pointer;
 }
 
@@ -186,74 +266,97 @@ body {
   cursor: default;
 }
 
-.square:not([disabled], [aria-disabled="true"]):hover {
-  box-shadow: inset 0 0 0 2px var(--color-text);
+.square:not([disabled], [aria-disabled="true"]):active {
+  box-shadow: var(--shadow-tile-pressed);
 }
 
 .square[disabled] {
-  background: var(--color-surface-sunken);
   border-color: var(--color-border-disabled);
-  color: var(--color-text);
+  background: var(--color-surface-sunken);
+  box-shadow: var(--shadow-tile-resting);
   cursor: default;
 }
 
+/* Pieces are inline SVG (symbols #mark-x and #mark-o in index.html), never
+   text glyphs; X and O differ by shape. They paint above the win line. */
 .mark {
   position: relative;
-  z-index: 1;
+  z-index: 2;
+  display: block;
+  /* Sized by width: WebKit does not resolve a percentage height inside a
+     button, which shrank and shifted the pieces. */
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  overflow: visible;
+  filter: var(--shadow-mark);
 }
 
-/* F-007: game over. Winning squares: thicker border, strike line and a pale
-   fill, so colour is never the only cue (R-005, WCAG 1.4.1). */
+.mark--x {
+  color: var(--color-mark-x);
+}
+
+.mark--o {
+  color: var(--color-mark-o);
+}
+
+.mark-backing {
+  fill: var(--mark-backing, none);
+}
+
+.mark-x-bar {
+  fill: currentcolor;
+}
+
+.mark-o-ring {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 17;
+}
+
+/* F-007, F-014: game over. Winning tiles: gold, lifted, a 4 px border, and one
+   continuous bar under the pieces, so colour is never the only cue (R-005,
+   WCAG 1.4.1). The padding absorbs the thicker border so pieces keep their
+   size, and each piece gets a win-surface backing disc over the bar. */
 .button--play-again {
   width: 100%;
 }
 
 .square[data-winning="true"] {
-  background: var(--color-win-surface);
+  --mark-backing: var(--color-win-surface);
+
+  top: calc(-1 * var(--size-lift-height));
+  padding: calc(
+    var(--size-mark-inset) - (var(--size-border-win) - var(--size-border))
+  );
   border: var(--size-border-win) solid var(--color-win-marker);
+  background: var(--color-win-surface);
+  box-shadow: var(--shadow-tile-win);
 }
 
-.square[data-winning="true"]::after {
-  content: "";
+/* Inset by tray padding − gap / 2, the tile centres sit at 1/6, 1/2 and 5/6 of
+   the overlay (describeWinLinePath); it rises with the lifted tiles. */
+.win-line {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  background: var(--color-win-marker);
+  z-index: 1;
+  top: calc(var(--size-win-line-inset) - var(--size-lift-height));
+  left: var(--size-win-line-inset);
+  width: calc(100% - 2 * var(--size-win-line-inset));
+  height: calc(100% - 2 * var(--size-win-line-inset));
+  overflow: visible;
   pointer-events: none;
 }
 
-.square[data-line="row"]::after {
-  width: calc(100% + var(--size-square-gap) + 2 * var(--size-border-win) + 2px);
-  height: var(--size-win-line);
-  transform: translate(-50%, -50%);
+.win-line[hidden] {
+  display: none;
 }
 
-.square[data-line="column"]::after {
-  width: var(--size-win-line);
-  height: calc(
-    100% + var(--size-square-gap) + 2 * var(--size-border-win) + 2px
-  );
-  transform: translate(-50%, -50%);
-}
-
-.square[data-line="diagonal-down"]::after,
-.square[data-line="diagonal-up"]::after {
-  width: calc(141% + var(--size-square-gap) * 1.41 + 12px);
-  height: var(--size-win-line);
-}
-
-.square[data-line="diagonal-down"]::after {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
-
-.square[data-line="diagonal-up"]::after {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
-
-.square[data-winning="true"] .mark {
-  background: var(--color-win-surface);
-  border-radius: 50%;
-  padding: 0 0.08em;
+.win-line path {
+  fill: none;
+  stroke: var(--color-win-marker);
+  stroke-width: var(--size-win-line);
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
 }
 
 /* F-008: keyboard hint shown in the action area during play. */
@@ -278,14 +381,23 @@ body {
   border: 0;
 }
 
-/* F-011: no-JavaScript and load-error messages, in the status style. */
+/* F-011, F-014: no-JavaScript and load-error messages, on a tile card. */
 .fallback {
   margin: 0;
+  padding: var(--space-4);
+  border: var(--size-border) solid var(--color-border);
+  border-radius: var(--radius-tile);
+  background: var(--color-surface-tile);
+  box-shadow: var(--shadow-tile);
   font-size: var(--font-size-status);
   line-height: var(--font-line-status);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
 }
 
 .fallback[hidden] {
   display: none;
+}
+
+.piece-symbols {
+  position: absolute;
 }
