@@ -8,7 +8,7 @@ import {
 } from "./game/game";
 import { createAnnouncer } from "./ui/announcer";
 import { chooseFocusTarget, type FocusTarget } from "./ui/focus";
-import { describeEvents, statusText } from "./ui/messages";
+import { describeEvents, describeStatus } from "./ui/messages";
 import { createGameView } from "./ui/view";
 
 function findElement(id: string): HTMLElement {
@@ -24,7 +24,7 @@ function revealLoadError(): void {
 }
 
 function startApplication(): void {
-  let current = resetToChoosing();
+  let currentStep = resetToChoosing();
   const announcer = createAnnouncer(findElement("announcer"));
 
   const view = createGameView(
@@ -35,13 +35,13 @@ function startApplication(): void {
     },
     {
       onChooseFirstMover(firstMover) {
-        apply(startGame(firstMover));
+        applyGameStep(startGame(firstMover));
       },
       onSquareActivated(index) {
-        apply(playHumanMove(current.state, index));
+        applyGameStep(playHumanMove(currentStep.state, index));
       },
       onPlayAgain() {
-        apply(resetToChoosing());
+        applyGameStep(resetToChoosing());
       },
     },
   );
@@ -49,16 +49,20 @@ function startApplication(): void {
   // The status is recomputed from every step; only square activations and
   // choices produce steps, so a taken-square message stays until the next one.
   // Focus follows the design's focus map; the first render moves no focus.
-  function apply(
+  function applyGameStep(
     step: GameStep,
     focusTarget: FocusTarget | null = chooseFocusTarget(step),
   ): void {
-    current = step;
-    view.render(step.state, statusText(step.state, step.events), focusTarget);
+    currentStep = step;
+    view.render(
+      step.state,
+      describeStatus(step.state, step.events),
+      focusTarget,
+    );
     announcer.announce(describeEvents(step.events));
   }
 
-  apply(current, null);
+  applyGameStep(currentStep, null);
 }
 
 // F-011: if start-up fails, show the load-error message and rethrow so the

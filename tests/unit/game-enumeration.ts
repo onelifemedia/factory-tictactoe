@@ -4,7 +4,7 @@
 import type { Board, BoardResult, Cell, Mark } from "../../src/game/board";
 import {
   createEmptyBoard,
-  emptySquares,
+  listEmptySquares,
   evaluateResult,
   placeMark,
 } from "../../src/game/board";
@@ -70,7 +70,7 @@ export function enumerateGames(
       walkPosition(placeMark(board, chosenSquare, COMPUTER_MARK), HUMAN_MARK);
       return;
     }
-    for (const square of emptySquares(board)) {
+    for (const square of listEmptySquares(board)) {
       walkPosition(placeMark(board, square, HUMAN_MARK), COMPUTER_MARK);
     }
   }

@@ -4,15 +4,15 @@
 // ("Copy"); the events come from real game.ts calls, not hand-built arrays.
 import { describe, it, expect } from "vitest";
 import type { Board, Cell, Line } from "../../src/game/board";
-import { LINES, emptySquares } from "../../src/game/board";
+import { LINES, listEmptySquares } from "../../src/game/board";
 import type { FirstMover, GameStep, Opponent } from "../../src/game/game";
 import { playHumanMove, resetToChoosing, startGame } from "../../src/game/game";
 import {
   describeEvents,
   describeLine,
   describeSquare,
-  squareLabel,
-  statusText,
+  describeSquareLabel,
+  describeStatus,
 } from "../../src/ui/messages";
 
 // Human first, real opponent, O wins on the rising diagonal:
@@ -33,7 +33,7 @@ const HUMAN_WIN_MOVES: readonly number[] = [3, 4, 5];
 
 /** A deliberately weak opponent: always the lowest empty square. */
 function chooseLowestEmptySquare(board: Board): number {
-  const [lowestSquare] = emptySquares(board);
+  const [lowestSquare] = listEmptySquares(board);
   if (lowestSquare === undefined) {
     throw new RangeError("The board is full; there is no square to choose");
   }
@@ -200,7 +200,7 @@ describe("describeSquare (F-005 R-008)", () => {
   });
 });
 
-describe("squareLabel (F-005 R-008)", () => {
+describe("describeSquareLabel (F-005 R-008)", () => {
   const expectedLabels: readonly {
     index: number;
     cell: Cell;
@@ -237,28 +237,30 @@ describe("squareLabel (F-005 R-008)", () => {
 
   for (const { index, cell, label } of expectedLabels) {
     it(`labels square ${String(index)} holding ${cell ?? "nothing"} as "${label}"`, () => {
-      expect(squareLabel(index, cell)).toBe(label);
+      expect(describeSquareLabel(index, cell)).toBe(label);
     });
   }
 });
 
-describe("statusText (F-005 R-005 R-008)", () => {
+describe("describeStatus (F-005 R-005 R-008)", () => {
   it("asks who goes first while choosing", () => {
     const step = resetToChoosing();
 
-    expect(statusText(step.state, step.events)).toBe("Who goes first?");
+    expect(describeStatus(step.state, step.events)).toBe("Who goes first?");
   });
 
   it("tells the human it is their turn as X when they start", () => {
     const step = startGame("human");
 
-    expect(statusText(step.state, step.events)).toBe("Your turn. You are X.");
+    expect(describeStatus(step.state, step.events)).toBe(
+      "Your turn. You are X.",
+    );
   });
 
   it("names the computer's opening O and the human's symbol when the computer starts", () => {
     const step = startGame("computer");
 
-    expect(statusText(step.state, step.events)).toBe(
+    expect(describeStatus(step.state, step.events)).toBe(
       "Computer placed O in row 1, column 1. Your turn. You are X.",
     );
   });
@@ -266,7 +268,7 @@ describe("statusText (F-005 R-005 R-008)", () => {
   it("names the computer's reply after a human move", () => {
     const step = playToLastStep("human", [0]);
 
-    expect(statusText(step.state, step.events)).toBe(
+    expect(describeStatus(step.state, step.events)).toBe(
       "Computer placed O in row 2, column 2. Your turn.",
     );
   });
@@ -274,7 +276,7 @@ describe("statusText (F-005 R-005 R-008)", () => {
   it("names the computer's reply after a human move in a computer-first game", () => {
     const step = playToLastStep("computer", [4]);
 
-    expect(statusText(step.state, step.events)).toBe(
+    expect(describeStatus(step.state, step.events)).toBe(
       "Computer placed O in row 1, column 2. Your turn.",
     );
   });
@@ -284,7 +286,7 @@ describe("statusText (F-005 R-005 R-008)", () => {
 
     const step = playHumanMove(state, 4);
 
-    expect(statusText(step.state, step.events)).toBe(
+    expect(describeStatus(step.state, step.events)).toBe(
       "Row 2, column 2 is taken. Choose an empty square.",
     );
   });
@@ -292,7 +294,7 @@ describe("statusText (F-005 R-005 R-008)", () => {
   it("names the winning line when the computer wins", () => {
     const step = playToLastStep("human", COMPUTER_WIN_MOVES);
 
-    expect(statusText(step.state, step.events)).toBe(
+    expect(describeStatus(step.state, step.events)).toBe(
       "Computer wins with the diagonal from top right to bottom left.",
     );
   });
@@ -300,13 +302,13 @@ describe("statusText (F-005 R-005 R-008)", () => {
   it("says it's a draw when the human's move fills the board", () => {
     const step = playToLastStep("human", HUMAN_FIRST_DRAW_MOVES);
 
-    expect(statusText(step.state, step.events)).toBe("It's a draw.");
+    expect(describeStatus(step.state, step.events)).toBe("It's a draw.");
   });
 
   it("says it's a draw when the computer's move fills the board", () => {
     const step = playToLastStep("computer", COMPUTER_FIRST_DRAW_MOVES);
 
-    expect(statusText(step.state, step.events)).toBe("It's a draw.");
+    expect(describeStatus(step.state, step.events)).toBe("It's a draw.");
   });
 
   it("names the winning line when the human wins against an injected losing opponent", () => {
@@ -316,6 +318,6 @@ describe("statusText (F-005 R-005 R-008)", () => {
       chooseLowestEmptySquare,
     );
 
-    expect(statusText(step.state, step.events)).toBe("You win with row 2.");
+    expect(describeStatus(step.state, step.events)).toBe("You win with row 2.");
   });
 });

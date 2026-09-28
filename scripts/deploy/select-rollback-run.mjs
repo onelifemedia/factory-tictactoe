@@ -2,7 +2,6 @@
 // `deploy` and `smoke` jobs both succeeded. A stale no-op run concludes
 // "success" with its deploy skipped, so run conclusions alone are not enough
 // (ADR-011). Job display names are frozen in deploy.yml for this.
-import { isRunAsCommandLine, readJsonInput } from "./read-json-input.mjs";
 
 /** @typedef {{ id: number; conclusion?: string | null; head_branch?: string; status?: string }} DeployRun */
 /** @typedef {{ name: string; conclusion: string | null }} DeployJob */
@@ -56,8 +55,7 @@ export async function findRollbackRun({
       // The history is listed unfiltered (filtered searches stop at 1,000
       // results), so runs on other branches or still running are skipped here.
       const isCompletedRunOnMain =
-        (run.head_branch ?? "main") === "main" &&
-        (run.status ?? "completed") === "completed";
+        run.head_branch === "main" && run.status === "completed";
       if (
         isCompletedRunOnMain &&
         run.id !== currentRunId &&
@@ -70,14 +68,4 @@ export async function findRollbackRun({
       return null;
     }
   }
-}
-
-if (isRunAsCommandLine(import.meta.url)) {
-  const input =
-    /** @type {{ runs: DeployRun[]; jobsByRunId: Record<string, DeployJob[]>; currentRunId: number }} */ (
-      readJsonInput()
-    );
-  const runId = selectRollbackRun(input);
-  console.log(JSON.stringify({ runId }));
-  process.exitCode = runId === null ? 1 : 0;
 }

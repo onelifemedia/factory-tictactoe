@@ -1,6 +1,6 @@
 // F-013 (R-014): deploy only the latest commit on main. Checked after the run
 // has acquired the `pages` concurrency slot (ADR-011).
-import { isRunAsCommandLine, readJsonInput } from "./read-json-input.mjs";
+import { isRunAsCommandLine, readJsonInput } from "../command-line.mjs";
 
 /**
  * @param {{ candidateSha?: string; mainTipSha?: string }} input

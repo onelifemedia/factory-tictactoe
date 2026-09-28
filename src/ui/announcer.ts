@@ -21,19 +21,19 @@ export function createAnnouncer(
     ((handle) => {
       cancelAnimationFrame(handle);
     });
-  let pendingFrame: number | null = null;
+  let pendingFrameHandle: number | null = null;
 
   return {
     announce(text) {
       if (text === "") {
         return;
       }
-      if (pendingFrame !== null) {
-        cancelFrame(pendingFrame);
+      if (pendingFrameHandle !== null) {
+        cancelFrame(pendingFrameHandle);
       }
       element.textContent = "";
-      pendingFrame = requestFrame(() => {
-        pendingFrame = null;
+      pendingFrameHandle = requestFrame(() => {
+        pendingFrameHandle = null;
         element.textContent = text;
       });
     },

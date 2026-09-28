@@ -4,7 +4,7 @@
 // continues. Scripted games use the real chooseComputerMove replies (F-003).
 import { describe, it, expect, vi } from "vitest";
 import type { Board } from "../../src/game/board";
-import { createEmptyBoard, emptySquares } from "../../src/game/board";
+import { createEmptyBoard, listEmptySquares } from "../../src/game/board";
 import { chooseComputerMove } from "../../src/game/computer-player";
 import type {
   FirstMover,
@@ -34,7 +34,7 @@ const HUMAN_WIN_MOVES: readonly number[] = [3, 4, 5];
 
 /** A deliberately weak opponent: always the lowest empty square. */
 function chooseLowestEmptySquare(board: Board): number {
-  const [lowestSquare] = emptySquares(board);
+  const [lowestSquare] = listEmptySquares(board);
   if (lowestSquare === undefined) {
     throw new RangeError("The board is full; there is no square to choose");
   }

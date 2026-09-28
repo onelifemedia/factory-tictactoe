@@ -5,9 +5,9 @@
 // Every URL is decoded (HTML entities, JavaScript escapes) and resolved against
 // the document's <base> and a stand-in site origin; anything that resolves to a
 // different origin, or an inline data: script, is reported.
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isRunAsCommandLine, listFilesRecursively } from "./command-line.mjs";
 
 /** @typedef {{ file: string; kind: string; url: string }} ExternalReference */
 
@@ -47,17 +47,6 @@ const NAMED_ENTITIES = new Map([
   ["tab", "\t"],
   ["newline", "\n"],
 ]);
-
-/**
- * @param {string} directory
- * @returns {string[]}
- */
-function listFilesRecursively(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(directory, entry.name);
-    return entry.isDirectory() ? listFilesRecursively(entryPath) : [entryPath];
-  });
-}
 
 /**
  * @param {string} text
@@ -328,9 +317,6 @@ function runCommandLine(commandArguments) {
   return 0;
 }
 
-const isCommandLine =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isCommandLine) {
+if (isRunAsCommandLine(import.meta.url)) {
   process.exitCode = runCommandLine(process.argv.slice(2));
 }

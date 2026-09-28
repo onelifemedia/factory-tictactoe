@@ -4,7 +4,7 @@ import { describe, it, expect } from "vitest";
 import type { Board } from "../../src/game/board";
 import {
   createEmptyBoard,
-  emptySquares,
+  listEmptySquares,
   findWinner,
   placeMark,
 } from "../../src/game/board";
@@ -32,7 +32,7 @@ function isWinningMoveForComputer(board: Board, square: number): boolean {
 describe("chooseComputerMove takes the win (F-003 R-003)", () => {
   it("completes a line in every reachable position where O can complete one", () => {
     const winnablePositions = collectComputerPositions().filter((board) =>
-      emptySquares(board).some((square) =>
+      listEmptySquares(board).some((square) =>
         isWinningMoveForComputer(board, square),
       ),
     );
@@ -56,7 +56,9 @@ describe("chooseComputerMove is deterministic (F-003 R-003)", () => {
       const firstChoice = chooseComputerMove(board);
       const secondChoice = chooseComputerMove(board);
       expect(secondChoice, formatBoard(board)).toBe(firstChoice);
-      expect(emptySquares(board), formatBoard(board)).toContain(firstChoice);
+      expect(listEmptySquares(board), formatBoard(board)).toContain(
+        firstChoice,
+      );
     }
   });
 

@@ -1,6 +1,6 @@
 // F-003 (R-003): the perfect computer player. Full-depth minimax, memoized (ADR-010).
 import {
-  emptySquares,
+  listEmptySquares,
   evaluateResult,
   placeMark,
   type Board,
@@ -12,9 +12,9 @@ const WIN_VALUE = 10;
 // Keyed by board plus side to move. Values are node-relative (distance to the
 // end, from O's point of view), so they stay valid across searches, games and
 // starters.
-const positionValues = new Map<string, number>();
+const valuesByPositionKey = new Map<string, number>();
 
-function describePosition(board: Board, sideToMove: Mark): string {
+function buildPositionKey(board: Board, sideToMove: Mark): string {
   return board.map((cell) => cell ?? ".").join("") + sideToMove;
 }
 
@@ -38,20 +38,20 @@ function evaluatePosition(board: Board, sideToMove: Mark): number {
     }
     return result.winner === "O" ? WIN_VALUE : -WIN_VALUE;
   }
-  const key = describePosition(board, sideToMove);
-  const cached = positionValues.get(key);
+  const key = buildPositionKey(board, sideToMove);
+  const cached = valuesByPositionKey.get(key);
   if (cached !== undefined) {
     return cached;
   }
   const nextSide: Mark = sideToMove === "O" ? "X" : "O";
-  const childValues = emptySquares(board).map((index) =>
+  const childValues = listEmptySquares(board).map((index) =>
     stepTowardZero(
       evaluatePosition(placeMark(board, index, sideToMove), nextSide),
     ),
   );
   const value =
     sideToMove === "O" ? Math.max(...childValues) : Math.min(...childValues);
-  positionValues.set(key, value);
+  valuesByPositionKey.set(key, value);
   return value;
 }
 
@@ -65,7 +65,7 @@ export function chooseComputerMove(board: Board): number {
   }
   let bestSquare = -1;
   let bestValue = -Infinity;
-  for (const index of emptySquares(board)) {
+  for (const index of listEmptySquares(board)) {
     const value = evaluatePosition(placeMark(board, index, "O"), "X");
     if (value > bestValue) {
       bestValue = value;

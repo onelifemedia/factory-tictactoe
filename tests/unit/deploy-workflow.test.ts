@@ -200,14 +200,14 @@ describe("deploy.yml (F-013 R-014)", () => {
   });
 
   it("makes deploy need build and smoke need prepare and deploy (Codex C2, F-013 R-014)", () => {
-    expect(readJobNeeds("deploy")).toEqual(["build"]);
+    expect(readJobNeeds("deploy")).toEqual(["build", "prepare"]);
     expect(readJobNeeds("smoke")).toEqual(["deploy", "prepare"]);
   });
 
   it("runs rollback only when deploy succeeded and smoke failed, even after a failure (Codex C2, F-013 R-014)", () => {
     const condition = readJobKey("rollback", "if");
 
-    expect(readJobNeeds("rollback")).toEqual(["deploy", "smoke"]);
+    expect(readJobNeeds("rollback")).toEqual(["deploy", "prepare", "smoke"]);
     expect(condition).toContain("always()");
     expect(condition).toContain("needs.deploy.result == 'success'");
     expect(condition).toContain("needs.smoke.result == 'failure'");
@@ -244,5 +244,77 @@ describe("deploy.yml (F-013 R-014)", () => {
     expect(deployStep).toMatch(
       /^\s*artifact_name:\s*["']?github-pages-rollback["']?\s*$/m,
     );
+  });
+
+  // QA security review (LOW): only CI triggered by a push to this repository
+  // may start a deploy.
+  it("starts prepare only for CI runs triggered by a push in this repository", () => {
+    const condition = readJobKey("prepare", "if");
+
+    expect(condition).toContain("github.event.workflow_run.event == 'push'");
+    expect(condition).toContain(
+      "github.event.workflow_run.head_repository.full_name == github.repository",
+    );
+  });
+
+  // QA security review (LOW): actions pinned by commit SHA, images by digest;
+  // local actions in this repository are pinned by the commit itself.
+  it("pins every action by full commit SHA and every container by digest", () => {
+    const ciText = readFileSync(
+      path.join(path.dirname(workflowPath), "ci.yml"),
+      "utf8",
+    );
+    const usesLines = `${workflowText}\n${ciText}`
+      .split(/\r?\n/)
+      .filter((line) => /^\s*(-\s*)?uses:/.test(line));
+
+    expect(usesLines.length).toBeGreaterThan(0);
+    for (const line of usesLines) {
+      expect(line).toMatch(
+        /uses:\s*(?:[\w.-]+\/[\w.-]+@[0-9a-f]{40}|docker:\/\/[^\s@]+@sha256:[0-9a-f]{64}|\.\/\.github\/actions\/[\w.-]+)(\s|$)/,
+      );
+    }
+  });
+
+  // Whole-change QA review (Codex C1, round 2): "Re-run failed jobs" reuses
+  // passed jobs, so every job that touches the site (deploy, smoke, rollback)
+  // first requires that this run's commit is still main's tip, on every
+  // attempt, through one local action.
+  for (const [jobId, guardedAction] of [
+    ["deploy", "actions/deploy-pages"],
+    ["smoke", "npx playwright test"],
+    ["rollback", "actions/deploy-pages"],
+  ] as const) {
+    it(`requires the commit to still be main's tip in ${jobId} before it acts`, () => {
+      const steps = extractJobSteps(jobId);
+      const guardIndex = steps.findIndex(
+        (step) =>
+          /uses:\s*\.\/\.github\/actions\/require-latest-main\b/.test(step) &&
+          step.includes("needs.prepare.outputs.sha"),
+      );
+      const actionIndex = steps.findIndex((step) =>
+        step.includes(guardedAction),
+      );
+
+      expect(guardIndex).toBeGreaterThanOrEqual(0);
+      expect(actionIndex).toBeGreaterThan(guardIndex);
+    });
+  }
+
+  it("defines the require-latest-main action that fails unless the sha is main's tip", () => {
+    const actionPath = path.join(
+      path.dirname(workflowPath),
+      "..",
+      "actions",
+      "require-latest-main",
+      "action.yml",
+    );
+    const actionText = existsSync(actionPath)
+      ? readFileSync(actionPath, "utf8")
+      : "";
+
+    expect(actionText).toMatch(/using:\s*["']?composite/);
+    expect(actionText).toContain("commits/main");
+    expect(actionText).toMatch(/exit 1/);
   });
 });
