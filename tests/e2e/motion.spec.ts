@@ -57,8 +57,13 @@ interface FrameSample {
   boardBox: PageBox;
 }
 
+// Just before the 280 ms drop ends and the 280 ms lift delay runs out.
+const DROP_LANDED_MILLISECONDS = 279;
+
 interface MotionProbeWindow {
   motionFreeze?: Promise<void>;
+  animationCountAtDeadline?: Promise<number>;
+  keyboardFreeze?: Promise<{ transform: string; transitionDuration: string }>;
   frameSamples?: Promise<FrameSample[]>;
 }
 
@@ -812,17 +817,34 @@ test.describe("drop, lift and timing with no motion preference (F-015)", () => {
     page,
   }, testInfo) => {
     await playUpToWinningMove(page, testInfo);
+    // The deadline is measured inside the page from the click itself, so time
+    // spent in Playwright round trips cannot hide an overrun (Codex F-015 C1).
+    await page.evaluate((deadlineMilliseconds) => {
+      const probeWindow = window as unknown as MotionProbeWindow;
+      probeWindow.animationCountAtDeadline = new Promise<number>((resolve) => {
+        document.addEventListener(
+          "click",
+          () => {
+            window.setTimeout(() => {
+              resolve(document.getAnimations().length);
+            }, deadlineMilliseconds);
+          },
+          { capture: true, once: true },
+        );
+      });
+    }, NATURAL_COMPLETION_WAIT_MILLISECONDS);
 
     await activate(locateSquare(page, 3), testInfo);
     expect(
       (await readRunningAnimations(page)).length,
       "CSS animations right after the winning move",
     ).toBeGreaterThan(0);
-    await page.waitForTimeout(NATURAL_COMPLETION_WAIT_MILLISECONDS);
 
     expect(
-      await countAllAnimations(page),
-      "animations 600 ms after the move",
+      await page.evaluate(
+        () => (window as unknown as MotionProbeWindow).animationCountAtDeadline,
+      ),
+      "animations 600 ms after the click",
     ).toBe(0);
   });
 
@@ -982,22 +1004,57 @@ test.describe("press and hover with no motion preference (F-015 criterion 5)", (
       "square 6 translateY while hovered",
     );
 
+    // Freeze in the first frame after the keypress, so the transient state
+    // the regression targets is what gets measured (Codex F-015 C2).
+    await page.evaluate(() => {
+      const probeWindow = window as unknown as MotionProbeWindow;
+      probeWindow.keyboardFreeze = new Promise((resolve) => {
+        document.addEventListener(
+          "keydown",
+          () => {
+            requestAnimationFrame(() => {
+              for (const animation of document.getAnimations()) {
+                animation.pause();
+              }
+              const square = document.querySelectorAll(".square")[6];
+              const style = square ? getComputedStyle(square) : null;
+              resolve({
+                transform: style?.transform ?? "missing",
+                transitionDuration: style?.transitionDuration ?? "missing",
+              });
+            });
+          },
+          { capture: true, once: true },
+        );
+      });
+    });
     await locateSquare(page, 3).focus();
     await page.keyboard.press("Enter");
+    const firstFrame = await page.evaluate(
+      () => (window as unknown as MotionProbeWindow).keyboardFreeze,
+    );
     await expect(locateStatus(page)).toHaveText(LONGEST_RESULT_STATUS);
-    const rightAfterWin = await readMotionStyle(locateSquare(page, 6));
     expect(
-      rightAfterWin.transform,
-      "square 6 transform right after the win",
+      firstFrame?.transform,
+      "square 6 transform in the first frame after the win",
     ).toBe("none");
     expect(
-      readLongestTransitionMilliseconds(rightAfterWin),
-      "square 6 transition once occupied",
-    ).toBe(0);
+      firstFrame?.transitionDuration
+        .split(",")
+        .every((duration) => Number.parseFloat(duration) === 0),
+      "square 6 has no transition once occupied",
+    ).toBe(true);
 
-    await waitForAnimationsToFinish(page);
+    // Still frozen, seek to just before the drop ends: the O has landed and
+    // the lift has not started, so the layering is sampled without
+    // Playwright fast-forwarding anything.
+    await page.evaluate((landedMilliseconds) => {
+      for (const animation of document.getAnimations()) {
+        animation.currentTime = landedMilliseconds;
+      }
+    }, DROP_LANDED_MILLISECONDS);
     const centreOfO = await readSquareCentre(page, 6);
-    const centreColor = await readScreenColor(page, centreOfO);
+    const centreColor = await readScreenColor(page, centreOfO, "allow");
     expectColorNear(
       centreColor,
       WIN_SURFACE,

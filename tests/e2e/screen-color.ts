@@ -11,10 +11,15 @@ export interface ScreenPoint {
 
 const PIXEL_CHANNEL_TOLERANCE = 4;
 
-/** The colour a screenshot shows at one viewport point, in CSS pixels. */
+/**
+ * The colour a screenshot shows at one viewport point, in CSS pixels. By
+ * default Playwright fast-forwards finite animations first; "allow" samples
+ * the page as it is, e.g. with animations frozen mid-flight (Codex F-015 C2).
+ */
 export async function readScreenColor(
   page: Page,
   point: ScreenPoint,
+  animations: "disabled" | "allow" = "disabled",
 ): Promise<PixelColor> {
   const screenshot = await page.screenshot({
     clip: {
@@ -24,7 +29,7 @@ export async function readScreenColor(
       height: 3,
     },
     scale: "css",
-    animations: "disabled",
+    animations,
   });
   return readPngPixel(screenshot, 1, 1);
 }
