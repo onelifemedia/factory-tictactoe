@@ -107,10 +107,11 @@ Square accessible names: `Row {R}, column {C}, empty` / `Row {R}, column {C}, X`
 - **Given** the same full game, **when** it ends, **then** `document.cookie` is empty and `localStorage.length` and `sessionStorage.length` are 0.
 - **Given** the built `dist/` output, **when** it is scanned, **then** it contains no script, link or iframe pointing to another origin.
 
-## R-013 Plain, high-contrast, system fonts
+## R-013 High-contrast, system fonts, locally drawn visuals
 
 - **Given** the page, **when** the computed `font-family` of the body is read, **then** it begins with `system-ui`, and no font files are requested during a full game.
 - **Given** the design tokens, **when** a unit test computes the contrast of every text colour against its background, **then** each ratio is at least 7:1, and every non-text indicator (square borders, focus ring, winning-line marker) is at least 3:1 against its background.
+- **Given** a Playwright test that records every request while loading the page and playing a full game, **when** the game ends, **then** no font file and no image file (raster or SVG, from any origin, including the page's own) was requested, and the built `dist/` contains no `@font-face` rule, no `<img>` element, and no `url()` that references a file (every visual is CSS or inline SVG).
 
 ## R-014 Deploy to GitHub Pages with smoke test and minimal rollback
 

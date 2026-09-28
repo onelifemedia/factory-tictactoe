@@ -147,7 +147,7 @@
       "Zero axe-core violations",
       "Performance: JavaScript bundle under 50 KB gzipped",
       "No analytics, no ads, no sign-up, no install",
-      "Visual: plain, high-contrast, system font stack; no brand",
+      "Visual: high-contrast (text at least 7:1, non-text at least 3:1); system font stack only; all visuals drawn locally (CSS or inline SVG), no web fonts or external images; no existing brand",
       "Browser support: current and previous versions of Chrome, Firefox, Safari and Edge, plus iOS Safari and Android Chrome",
       "Accessibility verification (automated): Playwright on Chromium, Firefox and WebKit plus phone-viewport emulation; keyboard-only full game; zero axe-core violations; exact live-region announcement text asserted in tests",
       "No manual screen-reader pass by the factory (an agent cannot listen to one). The QA report lists 'real screen-reader pass (VoiceOver) and real-device iOS/Android check' as NOT PERFORMED - human follow-up"
@@ -177,7 +177,20 @@
   "design": {
     "has_ui": true,
     "source": "factory",
-    "brand": "none - plain, simple, high-contrast, system font stack"
+    "brand": "none (no existing brand) - high-contrast, system font stack only, all visuals drawn locally; character comes from personality below",
+    "personality": [
+      "playful",
+      "tactile",
+      "confident"
+    ],
+    "references": [
+      "a chalkboard at a game night",
+      "classic arcade cabinets"
+    ],
+    "avoid": [
+      "generic web-app blue",
+      "flat grey admin look"
+    ]
   },
   "review": {
     "second_opinion": true,
