@@ -292,6 +292,11 @@ body {
   filter: var(--shadow-mark);
 }
 
+/* The hidden symbol sheet takes no space in the layout. */
+.piece-symbols {
+  position: absolute;
+}
+
 .mark--x {
   color: var(--color-mark-x);
 }
@@ -396,8 +401,4 @@ body {
 
 .fallback[hidden] {
   display: none;
-}
-
-.piece-symbols {
-  position: absolute;
 }

@@ -1,6 +1,6 @@
-// F-007, F-005 (R-005): which way a winning line runs. One classifier for both
-// the strike line (view) and its wording (messages), so they cannot drift
-// apart (QA code review).
+// F-007, F-005, F-014 (R-005): which way a winning line runs, and where its
+// win-line overlay is drawn. One classifier for both the view and the wording
+// (messages), so they cannot drift apart (QA code review).
 import type { Line } from "../game/board";
 
 export type LineDirection = "row" | "column" | "diagonal-down" | "diagonal-up";
