@@ -1,4 +1,111 @@
-# QA report: factory-tictactoe
+# QA report: factory-tictactoe, round 2 (Tabletop Tiles restyle and motion)
+
+_Whole change since the last QA, `5ebe604` → `main` @ `661b82e` (F-014 #18, F-015 #19, both merged), plus the QA fixes on `factory/qa-fixes-restyle` (`94ca02a`, `bced0a5`). Date: 2026-09-28. The first QA round is kept below._
+
+## For the human (decide or do)
+
+1. **Approve this QA report.** Then the QA fixes pull request (`factory/qa-fixes-restyle`, unit `QA`) must merge, because the CI gate requires it.
+2. **Not performed by the factory: human follow-ups**, as agreed in intent.
+   - **Real screen-reader pass (VoiceOver on macOS):**
+     - Play a full game with each first mover.
+     - Confirm that A1–A8 are spoken, including the move, the result and the winning line.
+     - Confirm that a repeated taken-square message (A8 twice) is spoken again.
+     - Confirm that the new SVG pieces add nothing to what is spoken: they are `aria-hidden`, and square names are unchanged.
+   - **Real devices, iOS Safari and Android Chrome:**
+     - Tap play, the layout at phone width, 44 px targets and focus behaviour.
+     - The Tabletop Tiles look: tray, tiles, pieces, and the gold winning tiles with the bar under the pieces.
+     - With the OS set to reduce motion, nothing moves.
+   - **New: real-iPhone press check (F-015).** On an iPhone, pressing a tile or a button visibly sinks it (the `:active` state).
+     - The passive `touchstart` listener that iOS Safari needs is unit-tested and wired in `main.ts`.
+     - iOS Safari's `:active` behaviour can't be emulated.
+3. **Deploys are failing (operational; outside this QA's scope).**
+   - Every Deploy run on `main` since the first one (02:37, before this change, then again after #18 and #19) builds and deploys, but the smoke test times out waiting for the new `build-id`.
+   - Pages reports the site at `http://onelifemedia.com/factory-tictactoe/` (the organization's custom domain), and the smoke test never sees the new build there.
+   - Rollback then fails, because no successful deploy exists yet to roll back to.
+   - The deploy phase has not been run for this project: R-014's live criteria are "verified in deploy phase". This belongs there (Pages settings and custom-domain DNS, then the smoke URL) and is not fixed here.
+4. **Architecture text drift (agreed: note it, do not reopen).** `architecture.md` now also lags the code in these places:
+   - §1 flowchart and §2 component rows: no `line-direction.ts`, `new-pieces.ts` or `touch-active.ts`.
+   - The View, Styles and Page rows don't mention the SVG pieces, the win-line overlay, the symbol sheet, tokens v2 or the motion block.
+   - The CI scripts row names `check-dist-origins.mjs` (the file is `check-build-origins.mjs`) and omits `check-local-visuals.mjs`.
+   - §5 describes a strike line.
+   - §6 and §8 omit the visuals check.
+   - §9 predates the motion.
+
+   Behaviour matches acceptance, design and the feature records; only the architecture descriptions lag. Per the approver's decision (2026-09-28) this is recorded here and in the retro, and the specification is **not** reopened.
+
+## Reviewer verdicts
+
+| Reviewer | Verdict | Critical / High | Notes |
+|---|---|---|---|
+| factory-code-reviewer | APPROVE | 0 / 0 | 5 medium, 9 low. All fixed except CR-3 (part), CR-5 and CR-14 (for-human) and CR-13 (accepted). CR-12 was first accepted, then fixed when it flaked |
+| factory-security-reviewer | FINDINGS (non-blocking) | 0 / 0 | SR-1 medium (checker bypasses) and SR-2 low (favicon request), both fixed. `npm audit`: 0 vulnerabilities; no new dependencies |
+| Codex, whole change `5ebe604..661b82e` | AGREE | 0 / 0 | No findings |
+| Ollama | disabled by the approver | — | — |
+
+Per-feature reviews already ran:
+- F-014: Codex on the spec (AGREE, 3 accepted) and on the diff (AGREE, 1 fixed).
+- F-015: Codex on the spec (AGREE, 8 accepted) and on the diff (AGREE, 2 fixed).
+
+## Findings
+
+| ID | Severity | Source | Finding | Status |
+|---|---|---|---|---|
+| SR-1 | MEDIUM | security | The R-013 checker missed CSS escapes, `@import`, `image-set()`, entity-encoded `url(`, SVG `<image>`/`<feImage>`, icon/preload links, `srcset`/`poster`, `<object>`/`<embed>`/`<input type=image>` and external `<use>` | **fixed** (`94ca02a`): decoding plus element and attribute rules, with a regression fixture per bypass |
+| SR-2 | LOW | security | Browsers auto-request `/favicon.ico` (an image request) | **fixed** (`94ca02a`): `<link rel="icon" href="data:,">`, pinned by a unit test |
+| CR-1 | MEDIUM | code | `findNewlyPlacedSquares` returns indexes | **fixed**: `findNewlyPlacedSquareIndexes` |
+| CR-2 | MEDIUM | code | `winLine` vs `winningLine` | **fixed**: typed `WinLineOverlay` |
+| CR-3 | MEDIUM | code | "piece" (TypeScript) vs "mark" (CSS) | **partly fixed**: `setPieceSymbol` plus a comment. The CSS class rename was rejected: `.mark` is the approved design system's name |
+| CR-4 | MEDIUM | code | `TILE_CENTRES` has no unit | **fixed**: `TILE_CENTRE_POSITIONS_UNITS` |
+| CR-5 | MEDIUM | code | `architecture.md` is stale | **for-human**: item 4; recorded, not reopened |
+| CR-6 | LOW | code | Hard-coded 3, literal 200, silent `?? 0` | **fixed**: `COLUMN_COUNT`, derived distance, `RangeError` |
+| CR-7 | LOW | code | `firstElementChild?.` could fail silently | **fixed**: typed references; a missing `<use>` throws |
+| CR-8 | LOW | code | X/O suffix computed twice | **fixed** |
+| CR-9 | LOW | code | `data-line` purpose unclear | **fixed**: comment |
+| CR-10 | LOW | code | `waitForAnimationsToFinish` unbounded | **fixed**: 2 s bound with a clear error |
+| CR-11 | LOW | code | `animations` parameter name | **fixed**: `animationMode` |
+| CR-12 | LOW | code | 600 ms wall-clock deadline test has a thin margin | **fixed** after it flaked on Firefox: it now checks each animation's delay plus duration ≤ 520 ms, then waits for them to finish |
+| CR-13 | LOW | code | First-frame probe compares the live region with itself | **accepted**: exact A3/A6 text is asserted in `announcements.spec.ts`; this test is about timing |
+| CR-14 | LOW | code | iOS `:active` can't be emulated | **for-human**: real-iPhone press check (item 2) |
+| QA-1 | MEDIUM | QA run | Firefox e2e flake under local full-parallel load: piece-name `expect.poll` 5 s timeouts, about 1 run in 3. Also seen on unchanged `main`; green in CI (#18, #19) and on rerun | **deferred** to the retro as a tooling change (fewer local Firefox workers or a longer expect timeout). Not a product defect |
+
+## Coverage
+
+- **Unit (Vitest):** 535 passed, 4 skipped. Coverage is from a transient `@vitest/coverage-v8` run, not added to the project:
+  - `focus.ts`: 100 % lines.
+  - `line-direction.ts`: 94.7 % lines; the uncovered line is the `RangeError` guard.
+  - `announcer.ts`: 92 % lines.
+  - `check-local-visuals.mjs`: 83 % lines; the uncovered lines are its CLI path, which the tests run as a child process.
+  - Game core, `messages.ts`, `new-pieces.ts` and `touch-active.ts`: 100 %.
+  - `view.ts` and `main.ts`: 0 % in unit coverage; they are exercised by the e2e suite.
+- **End to end (Playwright):** 645 tests across Chromium, Firefox, WebKit, Android and iPhone emulation; 10 hover and press tests are skipped on the touch-only projects. They cover every F-014 and F-015 criterion: tokens, pieces, the win-line geometry within 1 px, layering pixels, layout at 4 viewports, the reduced-motion and motion timing checks, board stability and the regressions. The final full run had 644 passed and 1 Firefox flake (QA-1), which passed on rerun.
+- **Primary metric (R-003):** unchanged; the exhaustive never-lose test passes (0 computer losses).
+- **Declared and executed coverage:** `validate.sh qa`, 0 findings.
+- **Build guards:** the JS bundle is 3,801 bytes gzipped (limit 51,200). `check:origins` and `check:visuals` (hardened) are clean on `dist/`.
+
+## Licenses (`validate.sh licenses`)
+
+- No dependency changed in this round: `package-lock.json` is identical between `5ebe604` and the QA fixes.
+- 0 findings against the policy; license mix as in round 1.
+- `npm audit`: 0 vulnerabilities, including with `--omit=dev`.
+
+## Standards
+
+`standards.sh check`: 0 findings. Format, lint (naming rules included) and typecheck are clean. No suppressed lint rules. The one `prettier-ignore` (`--size-win-line-inset` kept on one line to match its token) is documented in `styles.css` and in F-014.
+
+## Open items
+
+- The human follow-ups in item 2.
+- The failing deploys (item 3), for the deploy phase.
+- Architecture drift (item 4), for the retro.
+- QA-1 (the Firefox flake), for the retro.
+- **Plugin notes for the retro:**
+  - The auto-mode safety check returned no verdict on 7 consecutive shell commands during this QA, which stopped the session once.
+  - Test-writer and code-reviewer agents hit their turn limits and had to be resumed to deliver reports.
+  - `validate.sh licenses` has no `--include-dev` flag now; round 1's note about including dev dependencies still applies.
+
+---
+
+# Previous QA round (2026-09-27): F-001 to F-013
 
 _Whole change `0d19214` (planning approved) → `main` @ `87bb290` (F-001 to F-013 merged), plus the QA fixes on `factory/qa-fixes` @ `bbdeba7`. Date: 2026-09-27._
 
