@@ -627,11 +627,12 @@ describe("deploy decisions review follow-ups (F-013 R-014)", () => {
 // QA code review (LOW): in production a missing field is not eligible.
 describe("deploy decisions QA follow-ups (F-013 R-014)", () => {
   it("does not count a CI run without event or branch fields for a dispatch", () => {
-    const {
-      event: _event,
-      head_branch: _branch,
-      ...bareRun
-    } = createCiRun(31, MAIN_TIP_SHA, "completed", "success");
+    const bareRun = {
+      id: 31,
+      head_sha: MAIN_TIP_SHA,
+      status: "completed",
+      conclusion: "success",
+    };
     const resolution = resolveDispatchSha({
       mainTipSha: MAIN_TIP_SHA,
       ciRuns: [bareRun],
@@ -641,11 +642,8 @@ describe("deploy decisions QA follow-ups (F-013 R-014)", () => {
   });
 
   it("skips a deploy run without branch or status fields while paging", async () => {
-    const { head_branch: _branch, ...noBranch } = createDeployRun(
-      30,
-      "success",
-    );
-    const { status: _status, ...noStatus } = createDeployRun(20, "success");
+    const noBranch = { id: 30, status: "completed", conclusion: "success" };
+    const noStatus = { id: 20, head_branch: "main", conclusion: "success" };
     const runId = await findRollbackRun({
       fetchRunsPage: (pageNumber: number) =>
         pageNumber === 1
