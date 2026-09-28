@@ -19,7 +19,7 @@ const PIXEL_CHANNEL_TOLERANCE = 4;
 export async function readScreenColor(
   page: Page,
   point: ScreenPoint,
-  animations: "disabled" | "allow" = "disabled",
+  animationMode: "disabled" | "allow" = "disabled",
 ): Promise<PixelColor> {
   const screenshot = await page.screenshot({
     clip: {
@@ -29,7 +29,7 @@ export async function readScreenColor(
       height: 3,
     },
     scale: "css",
-    animations,
+    animations: animationMode,
   });
   return readPngPixel(screenshot, 1, 1);
 }

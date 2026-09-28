@@ -6,7 +6,7 @@ import type { Board } from "../game/board";
  * Indexes (ascending) of squares empty in `previousBoard` and holding a piece
  * in `nextBoard`.
  */
-export function findNewlyPlacedSquares(
+export function findNewlyPlacedSquareIndexes(
   previousBoard: Board,
   nextBoard: Board,
 ): number[] {

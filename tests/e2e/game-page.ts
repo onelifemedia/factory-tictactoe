@@ -130,13 +130,30 @@ export async function expectVisibleMarksMatchNames(page: Page): Promise<void> {
   }
 }
 
-/** Resolves once every running CSS animation and transition has finished. */
+const ANIMATION_WAIT_LIMIT_MILLISECONDS = 2000;
+
+/**
+ * Resolves once every running CSS animation and transition has finished.
+ * Bounded (QA code review): a paused or endless animation fails fast with a
+ * clear message instead of stalling until the test timeout.
+ */
 export async function waitForAnimationsToFinish(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await Promise.all(
-      document.getAnimations().map((animation) => animation.finished),
-    );
-  });
+  await page.evaluate(async (limitMilliseconds) => {
+    await Promise.race([
+      Promise.all(
+        document.getAnimations().map((animation) => animation.finished),
+      ),
+      new Promise((_resolve, reject) => {
+        window.setTimeout(() => {
+          reject(
+            new Error(
+              `animations still running after ${String(limitMilliseconds)} ms`,
+            ),
+          );
+        }, limitMilliseconds);
+      }),
+    ]);
+  }, ANIMATION_WAIT_LIMIT_MILLISECONDS);
 }
 
 export async function expectEverySquareNativelyDisabled(

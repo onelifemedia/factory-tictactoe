@@ -10,7 +10,7 @@ interface OverlayPoint {
   y: number;
 }
 
-const TILE_CENTRES = [50, 150, 250] as const;
+const TILE_CENTRE_POSITIONS_UNITS = [50, 150, 250] as const;
 const EXTENSION_UNITS = 18;
 const COLUMN_COUNT = 3;
 
@@ -26,8 +26,8 @@ const EXPECTED_PATHS_BY_LINE: readonly (readonly [Line, string])[] = [
 ];
 
 function locateTileCentre(index: number): OverlayPoint {
-  const centreX = TILE_CENTRES[index % COLUMN_COUNT];
-  const centreY = TILE_CENTRES[Math.floor(index / COLUMN_COUNT)];
+  const centreX = TILE_CENTRE_POSITIONS_UNITS[index % COLUMN_COUNT];
+  const centreY = TILE_CENTRE_POSITIONS_UNITS[Math.floor(index / COLUMN_COUNT)];
   if (centreX === undefined || centreY === undefined) {
     throw new Error(`square ${String(index)} is not on the board`);
   }
