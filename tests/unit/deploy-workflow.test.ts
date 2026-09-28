@@ -283,7 +283,7 @@ describe("deploy.yml (F-013 R-014)", () => {
   for (const [jobId, guardedAction] of [
     ["deploy", "actions/deploy-pages"],
     ["smoke", "npx playwright test"],
-    ["rollback", "actions/download-artifact"],
+    ["rollback", "actions/deploy-pages"],
   ] as const) {
     it(`requires the commit to still be main's tip in ${jobId} before it acts`, () => {
       const steps = extractJobSteps(jobId);

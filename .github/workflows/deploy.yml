@@ -137,17 +137,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.sha }}
-      - name: Require that this commit is still the latest on main
-        uses: ./.github/actions/require-latest-main
-        with:
-          sha: ${{ needs.prepare.outputs.sha }}
-          token: ${{ github.token }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # Checked last, right before testing (the check is not atomic with the
+      # test, but the shared queue keeps other deploys out meanwhile).
+      - name: Require that this commit is still the latest on main
+        uses: ./.github/actions/require-latest-main
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          token: ${{ github.token }}
       - name: Smoke-test the live site
         env:
           SMOKE_URL: ${{ needs.deploy.outputs.page_url }}
@@ -164,11 +166,6 @@ jobs:
       url: ${{ steps.rollback-deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Require that this commit is still the latest on main
-        uses: ./.github/actions/require-latest-main
-        with:
-          sha: ${{ needs.prepare.outputs.sha }}
-          token: ${{ github.token }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -200,6 +197,13 @@ jobs:
       - name: Explain a missing artifact
         if: ${{ failure() && steps.target.outcome == 'success' }}
         run: echo "The previous build's artifact is unavailable (expired after 90 days or deleted); nothing to roll back to."
+      # Checked right before publishing: if main moved on while the history
+      # was read, a newer run owns the site and nothing is rolled back.
+      - name: Require that this commit is still the latest on main
+        uses: ./.github/actions/require-latest-main
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          token: ${{ github.token }}
       - name: Re-upload it unchanged under its own name
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
