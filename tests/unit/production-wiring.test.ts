@@ -1,6 +1,7 @@
 // QA code review: R-008 says the production bundle offers no way to inject an
 // opponent (only tests use game.ts's optional opponent parameter), and R-015
-// needs the es2022 build target. Both are checked on the source.
+// needs the es2022 build target. Both are checked on the source. F-015 R-013:
+// the page registers the iOS :active touchstart listener on document once.
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,6 +43,12 @@ describe("production wiring (R-008, R-015)", () => {
     expect(mainSource).not.toMatch(
       /Opponent|computer-player|chooseComputerMove/,
     );
+  });
+
+  it("enables :active press states on touch by calling enableActiveStatesOnTouch(document) once (F-015 R-013)", () => {
+    expect(readCallArguments(mainSource, "enableActiveStatesOnTouch")).toEqual([
+      "document",
+    ]);
   });
 
   it("builds for es2022, which every supported browser runs (R-015)", () => {
