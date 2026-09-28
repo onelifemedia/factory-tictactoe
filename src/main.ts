@@ -1,4 +1,4 @@
-// F-001, F-006 to F-009, F-011: wires the pure game (src/game) to the page (src/ui).
+// F-001, F-006 to F-009, F-011, F-015: wires the pure game (src/game) to the page (src/ui).
 import "./styles.css";
 import {
   playHumanMove,
@@ -9,6 +9,7 @@ import {
 import { createAnnouncer } from "./ui/announcer";
 import { chooseFocusTarget, type FocusTarget } from "./ui/focus";
 import { describeEvents, describeStatus } from "./ui/messages";
+import { enableActiveStatesOnTouch } from "./ui/touch-active";
 import { createGameView } from "./ui/view";
 
 function findElement(id: string): HTMLElement {
@@ -68,6 +69,7 @@ function startApplication(): void {
 // F-011: if start-up fails, show the load-error message and rethrow so the
 // error still reaches the console.
 try {
+  enableActiveStatesOnTouch(document);
   startApplication();
 } catch (error) {
   revealLoadError();

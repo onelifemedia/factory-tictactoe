@@ -21,14 +21,14 @@ import {
   waitForAnimationsToFinish,
   type MovePair,
 } from "./game-page";
-import { readPngPixel, type PixelColor } from "./read-png-pixel";
+import type { PixelColor } from "./read-png-pixel";
+import {
+  expectColorNear,
+  readScreenColor,
+  type ScreenPoint,
+} from "./screen-color";
 
 type LineKind = "row" | "column" | "diagonal-down" | "diagonal-up";
-
-interface ScreenPoint {
-  x: number;
-  y: number;
-}
 
 interface WinLineMeasurement {
   overlayCount: number;
@@ -46,7 +46,6 @@ const REGULAR_BORDER_WIDTH = "2px";
 const COLUMN_COUNT = 3;
 const CENTRE_TOLERANCE_PIXELS = 1;
 const LIFT_HEIGHT_PIXELS = 3;
-const PIXEL_CHANNEL_TOLERANCE = 4;
 const WIN_SURFACE: PixelColor = { red: 0xff, green: 0xd7, blue: 0x66 };
 const WIN_MARKER: PixelColor = { red: 0x2b, green: 0x1d, blue: 0x13 };
 const WIN_SURFACE_RGB = "rgb(255, 215, 102)";
@@ -296,37 +295,6 @@ async function expectWinLineHidden(
     `win-line overlays ${stepName}`,
   ).toBeLessThanOrEqual(1);
   expect(winLine.isShown, `win line shown ${stepName}`).toBe(false);
-}
-
-/** The colour a screenshot shows at one viewport point, in CSS pixels. */
-async function readScreenColor(
-  page: Page,
-  point: ScreenPoint,
-): Promise<PixelColor> {
-  const screenshot = await page.screenshot({
-    clip: {
-      x: Math.round(point.x) - 1,
-      y: Math.round(point.y) - 1,
-      width: 3,
-      height: 3,
-    },
-    scale: "css",
-    animations: "disabled",
-  });
-  return readPngPixel(screenshot, 1, 1);
-}
-
-function expectColorNear(
-  actualColor: PixelColor,
-  expectedColor: PixelColor,
-  description: string,
-): void {
-  for (const channel of ["red", "green", "blue"] as const) {
-    expect(
-      Math.abs(actualColor[channel] - expectedColor[channel]),
-      `${description}: ${channel} ${String(actualColor[channel])} vs ${String(expectedColor[channel])}`,
-    ).toBeLessThanOrEqual(PIXEL_CHANNEL_TOLERANCE);
-  }
 }
 
 /** A custom property of the square's piece, resolved to rgb() ("" if unset). */

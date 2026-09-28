@@ -1,12 +1,15 @@
-// F-006, F-007, F-008, F-014 (R-001, R-002, R-005, R-006, R-007, R-010): renders
+// F-006, F-007, F-008, F-014, F-015 (R-001, R-002, R-005, R-006, R-007, R-010,
+// R-013): renders
 // the game state into the page and manages keyboard focus (roving tabindex,
 // ADR-012). Pieces are inline SVG using the #mark-x / #mark-o symbols in
-// index.html, and a win is drawn by one overlay on the board.
+// index.html, and a win is drawn by one overlay on the board. Squares whose
+// piece the last action placed carry is-new, so only those pieces drop in.
 // Every attribute is derived from the state on each render, and stale ones are
 // removed, so any phase can follow any other (render contract, F-006 spec).
 import {
   createEmptyBoard,
   SQUARE_COUNT,
+  type Board,
   type Cell,
   type Line,
 } from "../game/board";
@@ -14,6 +17,7 @@ import type { FirstMover, GameState } from "../game/game";
 import { nextSquareIndex, type FocusTarget } from "./focus";
 import { classifyLine, describeWinLinePath } from "./line-direction";
 import { describeSquareLabel } from "./messages";
+import { findNewlyPlacedSquares } from "./new-pieces";
 
 const EMPTY_BOARD = createEmptyBoard();
 
@@ -204,6 +208,7 @@ export function createGameView(
   const winLine = createWinLine();
   elements.board.replaceChildren(...squares, winLine);
   let renderedPhase: GameState["phase"] | null = null;
+  let renderedBoard: Board = EMPTY_BOARD;
   let activeIndex = 0;
 
   // Roving tabindex: exactly one square is tabbable during play, and it is
@@ -275,6 +280,8 @@ export function createGameView(
       const board = state.phase === "choosing" ? EMPTY_BOARD : state.board;
       const isPlaying = state.phase === "playing";
       const winningLine = findWinningLine(state);
+      const newlyPlacedSquares = findNewlyPlacedSquares(renderedBoard, board);
+      renderedBoard = board;
       squares.forEach((square, index) => {
         renderSquare(
           square,
@@ -283,6 +290,7 @@ export function createGameView(
           isPlaying,
           winningLine,
         );
+        square.classList.toggle("is-new", newlyPlacedSquares.includes(index));
       });
       renderWinLine(winLine, winningLine);
       if (isPlaying) {

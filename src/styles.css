@@ -266,6 +266,13 @@ body {
   cursor: default;
 }
 
+/* F-015: an explicit none (not the initial "all") cancels a press transition
+   still running when the square becomes occupied or disabled. */
+.square[disabled],
+.square[aria-disabled="true"] {
+  transition: none;
+}
+
 .square:not([disabled], [aria-disabled="true"]):active {
   box-shadow: var(--shadow-tile-pressed);
 }
@@ -401,4 +408,60 @@ body {
 
 .fallback[hidden] {
   display: none;
+}
+
+/* F-015: tactile motion, basic feedback only (PRD non-goal: animations beyond
+   basics). Game state, status and announcements never wait for it, pieces are
+   visible from the first frame (the drop moves them, never hides them), and
+   none of it runs under prefers-reduced-motion: reduce. Transitions apply only
+   to active empty squares and buttons, so a hovered square that becomes
+   occupied or disabled loses its transform at once and never traps its piece
+   under the win line (Codex F-015 C2). */
+@media (prefers-reduced-motion: no-preference) {
+  .square:not([disabled], [aria-disabled="true"]),
+  .button {
+    transition:
+      transform var(--motion-press),
+      box-shadow var(--motion-press);
+  }
+
+  .square:not([disabled], [aria-disabled="true"]):hover {
+    transform: translateY(-1px);
+  }
+
+  .square:not([disabled], [aria-disabled="true"]):active,
+  .button:active {
+    transform: translateY(var(--size-press-depth));
+  }
+
+  .square.is-new .mark {
+    animation: drop var(--motion-drop);
+  }
+
+  .square[data-winning="true"] {
+    animation: lift var(--motion-lift) var(--motion-lift-delay) backwards;
+  }
+
+  .win-line {
+    animation: lift-line var(--motion-lift) var(--motion-lift-delay) backwards;
+  }
+}
+
+@keyframes drop {
+  from {
+    transform: translateY(-22px) scale(1.15);
+  }
+}
+
+@keyframes lift {
+  from {
+    top: 0;
+    box-shadow: var(--shadow-tile);
+  }
+}
+
+@keyframes lift-line {
+  from {
+    top: var(--size-win-line-inset);
+  }
 }
