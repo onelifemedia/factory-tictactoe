@@ -432,6 +432,85 @@ describe("findVisualFileReferences closes the QA review's bypasses (F-014 R-013,
     expect(findings.map((finding) => finding.kind)).toContain(kind);
   });
 
+  it("reports an <img> between two comments that mention <script> (F-014 R-013, Codex QA C1)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</main>",
+        '<!-- <script> --><img src="x.png" alt=""><!-- </script> --></main>',
+      ),
+    );
+    expect(
+      findVisualFileReferences(fixtureDirectory).map((finding) => finding.kind),
+    ).toEqual(["img"]);
+  });
+
+  it("reports a CSS escape written with the &bsol; entity in a style attribute (F-014 R-013, Codex QA C2)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</main>",
+        '<div style="background:&bsol;75 rl(x.png)"></div></main>',
+      ),
+    );
+    expect(
+      findVisualFileReferences(fixtureDirectory).map((finding) => finding.kind),
+    ).toContain("url");
+  });
+
+  it.each([
+    { destination: "script", href: "./assets/app.js" },
+    { destination: "style", href: "./assets/app.css" },
+  ])(
+    "allows a preload of a $destination (F-014 R-013, Codex QA C3)",
+    ({ destination, href }) => {
+      const fixtureDirectory = createFixtureDirectory();
+      writeCleanBuild(fixtureDirectory);
+      writeFixtureFile(
+        fixtureDirectory,
+        "index.html",
+        PRODUCT_LIKE_HTML.replace(
+          "</head>",
+          `<link rel="preload" as="${destination}" href="${href}"></head>`,
+        ),
+      );
+      expect(findVisualFileReferences(fixtureDirectory)).toEqual([]);
+    },
+  );
+
+  it("reports a preload of a font (F-014 R-013, Codex QA C3)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</head>",
+        '<link rel="preload" as="font" href="./brand.woff2" crossorigin></head>',
+      ),
+    );
+    expect(
+      findVisualFileReferences(fixtureDirectory).map((finding) => finding.kind),
+    ).toEqual(["link"]);
+  });
+
+  it("does not crash on an out-of-range CSS escape (F-014 R-013, Codex QA C5)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "assets/extra.css",
+      '.x::before{content:"\\ffffff"}\n',
+    );
+    expect(findVisualFileReferences(fixtureDirectory)).toEqual([]);
+  });
+
   it("allows the empty data: icon that stops the automatic /favicon.ico request (F-014 R-013)", () => {
     const fixtureDirectory = createFixtureDirectory();
     writeCleanBuild(fixtureDirectory);

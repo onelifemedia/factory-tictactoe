@@ -47,6 +47,11 @@ const NAMED_ENTITIES = new Map([
   ["period", "."],
   ["lpar", "("],
   ["rpar", ")"],
+  ["bsol", "\\"],
+  ["num", "#"],
+  ["semi", ";"],
+  ["comma", ","],
+  ["equals", "="],
   ["tab", "\t"],
   ["newline", "\n"],
 ]);

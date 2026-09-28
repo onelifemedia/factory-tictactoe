@@ -32,7 +32,13 @@ const IMAGE_FUNCTION_PATTERN = /(?:-webkit-)?(?:image-set|cross-fade)\(/gi;
 const CSS_URL_PATTERN =
   /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^\s"'()\\])*))/gi;
 const CSS_ESCAPE_PATTERN = /\\(?:([0-9a-f]{1,6})\s?|(.))/gis;
+const HTML_COMMENT_PATTERN = /<!--[\s\S]*?-->/g;
 const INLINE_SCRIPT_PATTERN = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+const LARGEST_CODE_POINT = 0x10_ff_ff;
+const REPLACEMENT_CHARACTER = "\uFFFD";
+// preload/prefetch load a visual file only as an image or font (or with no
+// destination given); script and style preloads are Vite's own (Codex QA C3).
+const VISUAL_PRELOAD_DESTINATIONS = new Set(["", "image", "font"]);
 const IMAGE_ELEMENTS = new Set([
   "image",
   "feimage",
@@ -53,6 +59,19 @@ const LOADING_LINK_RELATIONS = new Set([
 const EMPTY_ICON_HREF = "data:,";
 
 /**
+ * A CSS hexadecimal escape's character; zero, surrogates and code points past
+ * U+10FFFF become U+FFFD, as CSS specifies, instead of throwing (Codex QA C5).
+ * @param {number} codePoint
+ * @returns {string}
+ */
+function decodeCssCodePoint(codePoint) {
+  const isSurrogate = codePoint >= 0xd8_00 && codePoint <= 0xdf_ff;
+  return codePoint === 0 || isSurrogate || codePoint > LARGEST_CODE_POINT
+    ? REPLACEMENT_CHARACTER
+    : String.fromCodePoint(codePoint);
+}
+
+/**
  * @param {string} css
  * @returns {string}
  */
@@ -66,7 +85,7 @@ function decodeCssEscapes(css) {
     ) =>
       hexadecimal === undefined
         ? (character ?? escape)
-        : String.fromCodePoint(Number.parseInt(hexadecimal, 16)),
+        : decodeCssCodePoint(Number.parseInt(hexadecimal, 16)),
   );
 }
 
@@ -116,9 +135,13 @@ function findTagVisualFiles(tagName, attributes, tagText) {
     findings.push({ kind: "element", text: tagText });
   } else if (tagName === "link") {
     const relations = (attributes.get("rel") ?? "").toLowerCase().split(/\s+/);
-    const isLoadingLink = relations.some((relation) =>
-      LOADING_LINK_RELATIONS.has(relation),
+    const isPreload = relations.some(
+      (relation) => relation === "preload" || relation === "prefetch",
     );
+    const destination = (attributes.get("as") ?? "").trim().toLowerCase();
+    const isLoadingLink =
+      relations.some((relation) => LOADING_LINK_RELATIONS.has(relation)) &&
+      (!isPreload || VISUAL_PRELOAD_DESTINATIONS.has(destination));
     if (isLoadingLink && attributes.get("href")?.trim() !== EMPTY_ICON_HREF) {
       findings.push({ kind: "link", text: tagText });
     }
@@ -149,7 +172,11 @@ function findTagVisualFiles(tagName, attributes, tagText) {
  * @returns {VisualFile[]}
  */
 function findHtmlVisualFiles(html) {
-  const markup = html.replaceAll(INLINE_SCRIPT_PATTERN, "");
+  // Comments first, so a "<script>" inside a comment cannot hide the real
+  // markup between two comments (Codex QA C1).
+  const markup = html
+    .replaceAll(HTML_COMMENT_PATTERN, "")
+    .replaceAll(INLINE_SCRIPT_PATTERN, "");
   /** @type {VisualFile[]} */
   const findings = [];
   for (const match of markup.matchAll(TAG_PATTERN)) {

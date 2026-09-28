@@ -833,8 +833,12 @@ test.describe("drop, lift and timing with no motion preference (F-015)", () => {
               resolve(
                 document
                   .getAnimations()
-                  .map((animation) =>
-                    Number(animation.effect?.getComputedTiming().endTime),
+                  // A slowed playback rate would stretch the real time, so
+                  // the end time is scaled by it (Codex QA C4).
+                  .map(
+                    (animation) =>
+                      Number(animation.effect?.getComputedTiming().endTime) /
+                      animation.playbackRate,
                   ),
               );
             });
