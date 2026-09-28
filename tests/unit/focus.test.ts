@@ -4,7 +4,7 @@
 // real game (src/game/game.ts) and its real computer player (ADR-010).
 import { describe, it, expect } from "vitest";
 import type { Board } from "../../src/game/board";
-import { emptySquares } from "../../src/game/board";
+import { listEmptySquares } from "../../src/game/board";
 import type { GameStep, Opponent } from "../../src/game/game";
 import { playHumanMove, resetToChoosing, startGame } from "../../src/game/game";
 import type { FocusTarget } from "../../src/ui/focus";
@@ -56,7 +56,7 @@ const HUMAN_WIN_MOVES: readonly number[] = [3, 4, 5];
 
 /** A deliberately weak opponent: always the lowest empty square. */
 function chooseLowestEmptySquare(board: Board): number {
-  const [lowestSquare] = emptySquares(board);
+  const [lowestSquare] = listEmptySquares(board);
   if (lowestSquare === undefined) {
     throw new RangeError("The board is full; there is no square to choose");
   }

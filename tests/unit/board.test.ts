@@ -14,7 +14,7 @@ import {
   findWinner,
   isFull,
   evaluateResult,
-  emptySquares,
+  listEmptySquares,
   placeMark,
 } from "../../src/game/board";
 
@@ -183,19 +183,21 @@ describe("placeMark (F-002 R-001)", () => {
   }
 });
 
-describe("emptySquares (F-002 R-001)", () => {
+describe("listEmptySquares (F-002 R-001)", () => {
   it("returns all 9 indexes in reading order for the empty board", () => {
-    expect(emptySquares(createEmptyBoard())).toEqual([
+    expect(listEmptySquares(createEmptyBoard())).toEqual([
       0, 1, 2, 3, 4, 5, 6, 7, 8,
     ]);
   });
 
   it("returns the empty indexes of a partly filled board in ascending order", () => {
-    expect(emptySquares(parseBoard(partialLayout))).toEqual([2, 3, 5, 7, 8]);
+    expect(listEmptySquares(parseBoard(partialLayout))).toEqual([
+      2, 3, 5, 7, 8,
+    ]);
   });
 
   it("returns no indexes for a full board", () => {
-    expect(emptySquares(parseBoard(drawLayout))).toEqual([]);
+    expect(listEmptySquares(parseBoard(drawLayout))).toEqual([]);
   });
 });
 

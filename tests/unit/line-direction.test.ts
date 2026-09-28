@@ -2,7 +2,7 @@
 // review, missing coverage of column and diagonal-down).
 import { describe, expect, it } from "vitest";
 import { LINES } from "../../src/game/board";
-import { classifyLine } from "../../src/ui/view";
+import { classifyLine } from "../../src/ui/line-direction";
 
 const EXPECTED_DIRECTIONS = [
   "row",

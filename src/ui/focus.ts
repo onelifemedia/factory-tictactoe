@@ -1,6 +1,6 @@
 // F-008 (R-007, R-006): where keyboard focus goes. Pure, no DOM; the view
 // applies these decisions (architecture §5, design/screens.md focus map).
-import { emptySquares } from "../game/board";
+import { COLUMN_COUNT, listEmptySquares } from "../game/board";
 import type { GameStep } from "../game/game";
 
 export type FocusTarget =
@@ -8,7 +8,6 @@ export type FocusTarget =
   | { kind: "play-again" }
   | { kind: "first-choice" };
 
-const COLUMN_COUNT = 3;
 const LAST_ROW_START = 6;
 
 /** The square an arrow key moves to, staying put at the edge; null for other keys. */
@@ -44,7 +43,7 @@ export function chooseFocusTarget(step: GameStep): FocusTarget | null {
     return events.length === 0 ? { kind: "first-choice" } : null;
   }
   if (events.some((event) => event.type === "started")) {
-    const [firstEmpty] = emptySquares(state.board);
+    const [firstEmpty] = listEmptySquares(state.board);
     return firstEmpty === undefined
       ? null
       : { kind: "square", index: firstEmpty };

@@ -2,13 +2,15 @@
 // Squares are numbered 0–8 in reading order: index = (row - 1) * 3 + (column - 1).
 
 export type Mark = "X" | "O";
+// A square's content (the PRD calls the positions "squares"; Cell is what one holds).
 export type Cell = Mark | null;
 export type Board = readonly Cell[];
 export type Line = readonly [number, number, number];
 export type BoardResult =
   { kind: "win"; winner: Mark; line: Line } | { kind: "draw" };
 
-const SQUARE_COUNT = 9;
+export const SQUARE_COUNT = 9;
+export const COLUMN_COUNT = 3;
 
 /** The 8 winning lines: rows, then columns, then the two diagonals. */
 export const LINES: readonly Line[] = Object.freeze(
@@ -55,7 +57,7 @@ export function evaluateResult(board: Board): BoardResult | null {
 }
 
 /** Indexes of the empty squares, in reading order. */
-export function emptySquares(board: Board): number[] {
+export function listEmptySquares(board: Board): number[] {
   return board.flatMap((cell, index) => (cell === null ? [index] : []));
 }
 

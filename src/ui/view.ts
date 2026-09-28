@@ -2,16 +2,18 @@
 // state into the page and manages keyboard focus (roving tabindex, ADR-012).
 // Every attribute is derived from the state on each render, and stale ones are
 // removed, so any phase can follow any other (render contract, F-006 spec).
-import type { Board, Cell, Line } from "../game/board";
+import {
+  createEmptyBoard,
+  SQUARE_COUNT,
+  type Cell,
+  type Line,
+} from "../game/board";
 import type { FirstMover, GameState } from "../game/game";
 import { nextSquareIndex, type FocusTarget } from "./focus";
-import { squareLabel } from "./messages";
+import { classifyLine } from "./line-direction";
+import { describeSquareLabel } from "./messages";
 
-const SQUARE_COUNT = 9;
-const EMPTY_BOARD: Board = Array.from(
-  { length: SQUARE_COUNT },
-  (): Cell => null,
-);
+const EMPTY_BOARD = createEmptyBoard();
 
 export interface GameViewElements {
   status: HTMLElement;
@@ -23,20 +25,6 @@ export interface GameViewHandlers {
   onChooseFirstMover: (firstMover: FirstMover) => void;
   onSquareActivated: (index: number) => void;
   onPlayAgain: () => void;
-}
-
-export type LineDirection = "row" | "column" | "diagonal-down" | "diagonal-up";
-
-/** The strike direction of a winning line, classified by its squares. */
-export function classifyLine(line: Line): LineDirection {
-  const [first, second] = line;
-  if (first === 0 && second === 4) {
-    return "diagonal-down";
-  }
-  if (first === 2 && second === 4) {
-    return "diagonal-up";
-  }
-  return second - first === 1 ? "row" : "column";
 }
 
 export interface GameView {
@@ -59,10 +47,10 @@ function createSquare(
   square.className = "square";
   square.dataset["index"] = String(index);
   square.tabIndex = -1;
-  const mark = document.createElement("span");
-  mark.className = "mark";
-  mark.setAttribute("aria-hidden", "true");
-  square.append(mark);
+  const markElement = document.createElement("span");
+  markElement.className = "mark";
+  markElement.setAttribute("aria-hidden", "true");
+  square.append(markElement);
   square.addEventListener("click", () => {
     handlers.onSquareActivated(index);
   });
@@ -74,11 +62,11 @@ function createChoice(handlers: GameViewHandlers): HTMLElement {
   choice.className = "choice";
   choice.setAttribute("role", "group");
   choice.setAttribute("aria-label", "Who goes first");
-  const options: [FirstMover, string][] = [
+  const firstMoverChoices: [FirstMover, string][] = [
     ["human", "You go first"],
     ["computer", "Computer goes first"],
   ];
-  for (const [firstMover, label] of options) {
+  for (const [firstMover, label] of firstMoverChoices) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "button";
@@ -113,7 +101,7 @@ function createHint(): HTMLElement {
   return hint;
 }
 
-function winningLineOf(state: GameState): Line | null {
+function findWinningLine(state: GameState): Line | null {
   return state.phase === "over" && state.result.kind === "win"
     ? state.result.line
     : null;
@@ -126,11 +114,11 @@ function renderSquare(
   isPlaying: boolean,
   winningLine: Line | null,
 ): void {
-  const mark = square.firstElementChild;
-  if (mark) {
-    mark.textContent = cell ?? "";
+  const markElement = square.firstElementChild;
+  if (markElement) {
+    markElement.textContent = cell ?? "";
   }
-  square.setAttribute("aria-label", squareLabel(index, cell));
+  square.setAttribute("aria-label", describeSquareLabel(index, cell));
   square.disabled = !isPlaying;
   if (isPlaying) {
     square.setAttribute("aria-describedby", HINT_ID);
@@ -173,7 +161,7 @@ export function createGameView(
 
   // Roving tabindex: exactly one square is tabbable during play, and it is
   // updated on every focus change, not only on render (APG algorithm).
-  function makeActive(index: number, shouldFocus: boolean): void {
+  function makeSquareActive(index: number, shouldFocus: boolean): void {
     squares[activeIndex]?.setAttribute("tabindex", "-1");
     activeIndex = index;
     const square = squares[index];
@@ -188,12 +176,12 @@ export function createGameView(
     if (index === null || renderedPhase !== "playing") {
       return;
     }
-    const next = nextSquareIndex(index, event.key);
-    if (next === null) {
+    const nextIndex = nextSquareIndex(index, event.key);
+    if (nextIndex === null) {
       return;
     }
     event.preventDefault();
-    makeActive(next, true);
+    makeSquareActive(nextIndex, true);
   });
 
   elements.board.addEventListener("focusin", (event) => {
@@ -203,7 +191,7 @@ export function createGameView(
       renderedPhase === "playing" &&
       index !== activeIndex
     ) {
-      makeActive(index, false);
+      makeSquareActive(index, false);
     }
   });
 
@@ -221,12 +209,12 @@ export function createGameView(
     }
   }
 
-  function applyFocus(focusTarget: FocusTarget | null): void {
+  function moveFocusToTarget(focusTarget: FocusTarget | null): void {
     if (focusTarget === null) {
       return;
     }
     if (focusTarget.kind === "square") {
-      makeActive(focusTarget.index, true);
+      makeSquareActive(focusTarget.index, true);
       return;
     }
     const selector =
@@ -239,7 +227,7 @@ export function createGameView(
       elements.status.textContent = status;
       const board = state.phase === "choosing" ? EMPTY_BOARD : state.board;
       const isPlaying = state.phase === "playing";
-      const winningLine = winningLineOf(state);
+      const winningLine = findWinningLine(state);
       squares.forEach((square, index) => {
         renderSquare(
           square,
@@ -250,10 +238,10 @@ export function createGameView(
         );
       });
       if (isPlaying) {
-        makeActive(activeIndex, false);
+        makeSquareActive(activeIndex, false);
       }
       renderActions(state);
-      applyFocus(focusTarget);
+      moveFocusToTarget(focusTarget);
     },
   };
 }

@@ -1,9 +1,13 @@
 // F-005 (R-005, R-008): every word the game shows or announces. Pure, no DOM.
 // Exact texts: acceptance.md "Announcement text" (A1–A8) and design/screens.md "Copy".
-import type { BoardResult, Cell, Line } from "../game/board";
+import {
+  COLUMN_COUNT,
+  type BoardResult,
+  type Cell,
+  type Line,
+} from "../game/board";
 import type { GameEvent, GameState } from "../game/game";
-
-const COLUMN_COUNT = 3;
+import { classifyLine } from "./line-direction";
 
 /** "row R, column C" for a square index 0–8. */
 export function describeSquare(index: number): string {
@@ -17,31 +21,31 @@ function capitalize(text: string): string {
 }
 
 /** Accessible name of a square: "Row R, column C, empty|X|O". */
-export function squareLabel(index: number, cell: Cell): string {
+export function describeSquareLabel(index: number, cell: Cell): string {
   return `${capitalize(describeSquare(index))}, ${cell ?? "empty"}`;
 }
 
 /** The {LINE} wording, classified by the line's squares. */
 export function describeLine(line: Line): string {
-  const [first, second, third] = line;
-  if (first === 0 && second === 4 && third === 8) {
-    return "the diagonal from top left to bottom right";
+  const [first] = line;
+  switch (classifyLine(line)) {
+    case "diagonal-down":
+      return "the diagonal from top left to bottom right";
+    case "diagonal-up":
+      return "the diagonal from top right to bottom left";
+    case "row":
+      return `row ${String(Math.floor(first / COLUMN_COUNT) + 1)}`;
+    case "column":
+      return `column ${String(first + 1)}`;
   }
-  if (first === 2 && second === 4 && third === 6) {
-    return "the diagonal from top right to bottom left";
-  }
-  if (second - first === 1) {
-    return `row ${String(Math.floor(first / COLUMN_COUNT) + 1)}`;
-  }
-  return `column ${String(first + 1)}`;
 }
 
 function describeResult(result: BoardResult): string {
   if (result.kind === "draw") {
     return "It's a draw.";
   }
-  const winner = result.winner === "X" ? "You win" : "Computer wins";
-  return `${winner} with ${describeLine(result.line)}.`;
+  const winnerPhrase = result.winner === "X" ? "You win" : "Computer wins";
+  return `${winnerPhrase} with ${describeLine(result.line)}.`;
 }
 
 function describeTakenSquare(index: number): string {
@@ -88,7 +92,7 @@ export function describeEvents(events: readonly GameEvent[]): string {
 }
 
 /** The visible status line for the current state and the events that led to it. */
-export function statusText(
+export function describeStatus(
   state: GameState,
   events: readonly GameEvent[],
 ): string {
