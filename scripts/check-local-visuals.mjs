@@ -1,34 +1,92 @@
-// F-014 (R-013): fails when the build uses a visual file: an @font-face rule,
-// an <img> element or a CSS url() that references a file (same-document
-// url(#fragment) is allowed). Used by CI after the build:
+// F-014 (R-013), QA: fails when the build uses a visual file. Every visual is
+// CSS or same-document inline SVG, so the build must contain no @font-face,
+// @import, image function (image-set, cross-fade), file url(), and no element
+// or attribute that loads an image: <img>, SVG <image>/<feImage>, <source>,
+// <object>, <embed>, <input type=image>, icon or preload links, srcset,
+// poster, background, or a <use> that points outside the document. CSS
+// escapes and HTML character references are decoded first, so `\75 rl(` and
+// `url&#40;` are caught (QA security review). Used by CI after the build:
 // node scripts/check-local-visuals.mjs dist
 //
-// Every visual is CSS or same-document inline SVG, so none of these should
-// ever appear. Scripts are not scanned: they build <use href="#mark-x">.
+// Scripts are not scanned: they build <use href="#mark-x">. The Playwright
+// privacy test (tests/e2e/privacy.spec.ts) checks at run time that no image
+// or font is requested; this scan is the static line of defence.
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  decodeHtmlEntities,
+  parseAttributes,
+  TAG_PATTERN,
+} from "./check-build-origins.mjs";
 import { isRunAsCommandLine, listFilesRecursively } from "./command-line.mjs";
 
-/** @typedef {{ file: string; kind: "font-face" | "img" | "url"; text: string }} VisualFileReference */
+/** @typedef {"font-face" | "import" | "image-function" | "url" | "img" | "element" | "attribute" | "link" | "use"} VisualFileKind */
+/** @typedef {{ file: string; kind: VisualFileKind; text: string }} VisualFileReference */
+/** @typedef {{ kind: VisualFileKind; text: string }} VisualFile */
 
 const FONT_FACE_PATTERN = /@font-face\b/gi;
-// Quoted and unquoted url(...) are matched separately (Vite's minified CSS
-// drops the quotes).
+const CSS_IMPORT_PATTERN = /@import\b[^;]*/gi;
+const IMAGE_FUNCTION_PATTERN = /(?:-webkit-)?(?:image-set|cross-fade)\(/gi;
+// Quoted and unquoted url(...), closing parenthesis optional (browsers accept
+// an unterminated url( at the end of a style sheet).
 const CSS_URL_PATTERN =
-  /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^\s"'()\\])+))\s*\)/gi;
-const IMG_TAG_PATTERN = /<img\b[^>]*>/gi;
+  /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^\s"'()\\])*))/gi;
+const CSS_ESCAPE_PATTERN = /\\(?:([0-9a-f]{1,6})\s?|(.))/gis;
 const INLINE_SCRIPT_PATTERN = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+const IMAGE_ELEMENTS = new Set([
+  "image",
+  "feimage",
+  "source",
+  "object",
+  "embed",
+]);
+const IMAGE_ATTRIBUTES = ["srcset", "poster", "background"];
+const LOADING_LINK_RELATIONS = new Set([
+  "icon",
+  "apple-touch-icon",
+  "mask-icon",
+  "preload",
+  "prefetch",
+  "image_src",
+]);
+// An empty data: icon stops browsers requesting /favicon.ico; it is no file.
+const EMPTY_ICON_HREF = "data:,";
 
 /**
- * Font faces and file url()s in a piece of CSS.
  * @param {string} css
- * @returns {{ kind: "font-face" | "url"; text: string }[]}
+ * @returns {string}
  */
-function findCssVisualFiles(css) {
-  /** @type {{ kind: "font-face" | "url"; text: string }[]} */
+function decodeCssEscapes(css) {
+  return css.replace(
+    CSS_ESCAPE_PATTERN,
+    (
+      /** @type {string} */ escape,
+      /** @type {string | undefined} */ hexadecimal,
+      /** @type {string | undefined} */ character,
+    ) =>
+      hexadecimal === undefined
+        ? (character ?? escape)
+        : String.fromCodePoint(Number.parseInt(hexadecimal, 16)),
+  );
+}
+
+/**
+ * Font faces, imports, image functions and file url()s in a piece of CSS.
+ * @param {string} rawCss
+ * @returns {VisualFile[]}
+ */
+function findCssVisualFiles(rawCss) {
+  const css = decodeCssEscapes(rawCss);
+  /** @type {VisualFile[]} */
   const findings = [];
   for (const match of css.matchAll(FONT_FACE_PATTERN)) {
     findings.push({ kind: "font-face", text: match[0] });
+  }
+  for (const match of css.matchAll(CSS_IMPORT_PATTERN)) {
+    findings.push({ kind: "import", text: match[0] });
+  }
+  for (const match of css.matchAll(IMAGE_FUNCTION_PATTERN)) {
+    findings.push({ kind: "image-function", text: match[0] });
   }
   for (const match of css.matchAll(CSS_URL_PATTERN)) {
     const reference = (match[1] ?? match[2] ?? match[3] ?? "").trim();
@@ -40,27 +98,72 @@ function findCssVisualFiles(css) {
 }
 
 /**
- * Image elements, and font faces and file url()s anywhere in the markup:
- * style blocks, quoted or unquoted style attributes and SVG presentation
- * attributes such as fill="url(paint.svg#gradient)" (Codex F-014 C1).
- * Inline scripts are skipped.
- * @param {string} html
- * @returns {{ kind: "font-face" | "img" | "url"; text: string }[]}
+ * The image-loading element or attribute a tag carries, if any.
+ * @param {string} tagName lower case
+ * @param {Map<string, string>} attributes
+ * @param {string} tagText
+ * @returns {VisualFile[]}
  */
-function findHtmlVisualFiles(html) {
-  /** @type {{ kind: "font-face" | "img" | "url"; text: string }[]} */
+function findTagVisualFiles(tagName, attributes, tagText) {
+  /** @type {VisualFile[]} */
   const findings = [];
-  for (const match of html.matchAll(IMG_TAG_PATTERN)) {
-    findings.push({ kind: "img", text: match[0] });
+  if (tagName === "img") {
+    findings.push({ kind: "img", text: tagText });
+  } else if (
+    IMAGE_ELEMENTS.has(tagName) ||
+    (tagName === "input" && attributes.get("type")?.toLowerCase() === "image")
+  ) {
+    findings.push({ kind: "element", text: tagText });
+  } else if (tagName === "link") {
+    const relations = (attributes.get("rel") ?? "").toLowerCase().split(/\s+/);
+    const isLoadingLink = relations.some((relation) =>
+      LOADING_LINK_RELATIONS.has(relation),
+    );
+    if (isLoadingLink && attributes.get("href")?.trim() !== EMPTY_ICON_HREF) {
+      findings.push({ kind: "link", text: tagText });
+    }
+  } else if (tagName === "use") {
+    const reference = (
+      attributes.get("href") ??
+      attributes.get("xlink:href") ??
+      ""
+    ).trim();
+    if (!reference.startsWith("#")) {
+      findings.push({ kind: "use", text: tagText });
+    }
   }
-  findings.push(
-    ...findCssVisualFiles(html.replaceAll(INLINE_SCRIPT_PATTERN, "")),
-  );
+  for (const attributeName of IMAGE_ATTRIBUTES) {
+    if (attributes.has(attributeName)) {
+      findings.push({ kind: "attribute", text: tagText });
+    }
+  }
   return findings;
 }
 
 /**
- * Every font face, image element and file url() in the build.
+ * Image-loading elements and attributes, and font faces, imports, image
+ * functions and file url()s anywhere in the markup (style blocks, quoted or
+ * unquoted style attributes, SVG presentation attributes such as
+ * fill="url(paint.svg#gradient)"; Codex F-014 C1). Inline scripts are skipped.
+ * @param {string} html
+ * @returns {VisualFile[]}
+ */
+function findHtmlVisualFiles(html) {
+  const markup = html.replaceAll(INLINE_SCRIPT_PATTERN, "");
+  /** @type {VisualFile[]} */
+  const findings = [];
+  for (const match of markup.matchAll(TAG_PATTERN)) {
+    const tagName = (match[1] ?? "").toLowerCase();
+    findings.push(
+      ...findTagVisualFiles(tagName, parseAttributes(match[2] ?? ""), match[0]),
+    );
+  }
+  findings.push(...findCssVisualFiles(decodeHtmlEntities(markup)));
+  return findings;
+}
+
+/**
+ * Every visual file reference in the build.
  * @param {string} directory
  * @returns {VisualFileReference[]}
  */
