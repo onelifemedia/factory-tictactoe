@@ -207,7 +207,7 @@ describe("deploy.yml (F-013 R-014)", () => {
   it("runs rollback only when deploy succeeded and smoke failed, even after a failure (Codex C2, F-013 R-014)", () => {
     const condition = readJobKey("rollback", "if");
 
-    expect(readJobNeeds("rollback")).toEqual(["deploy", "smoke"]);
+    expect(readJobNeeds("rollback")).toEqual(["deploy", "prepare", "smoke"]);
     expect(condition).toContain("always()");
     expect(condition).toContain("needs.deploy.result == 'success'");
     expect(condition).toContain("needs.smoke.result == 'failure'");
@@ -275,22 +275,45 @@ describe("deploy.yml (F-013 R-014)", () => {
     }
   });
 
-  // Whole-change QA review (Codex C1): "Re-run failed jobs" reuses a passed
-  // prepare, so the deploy job re-checks main's tip itself, on every attempt,
-  // before publishing.
-  it("re-checks that the candidate is still main's tip inside deploy, before deploy-pages", () => {
-    const steps = extractJobSteps("deploy");
-    const recheckIndex = steps.findIndex(
-      (step) =>
-        step.includes("commits/main") &&
-        step.includes("needs.prepare.outputs.sha") &&
-        /exit 1/.test(step),
-    );
-    const deployIndex = steps.findIndex((step) =>
-      /uses:\s*actions\/deploy-pages@/.test(step),
-    );
+  // Whole-change QA review (Codex C1, round 2): "Re-run failed jobs" reuses
+  // passed jobs, so every job that touches the site (deploy, smoke, rollback)
+  // first requires that this run's commit is still main's tip, on every
+  // attempt, through one local action.
+  for (const [jobId, guardedAction] of [
+    ["deploy", "actions/deploy-pages"],
+    ["smoke", "npx playwright test"],
+    ["rollback", "actions/download-artifact"],
+  ] as const) {
+    it(`requires the commit to still be main's tip in ${jobId} before it acts`, () => {
+      const steps = extractJobSteps(jobId);
+      const guardIndex = steps.findIndex(
+        (step) =>
+          /uses:\s*\.\/\.github\/actions\/require-latest-main\b/.test(step) &&
+          step.includes("needs.prepare.outputs.sha"),
+      );
+      const actionIndex = steps.findIndex((step) =>
+        step.includes(guardedAction),
+      );
 
-    expect(recheckIndex).toBeGreaterThanOrEqual(0);
-    expect(deployIndex).toBeGreaterThan(recheckIndex);
+      expect(guardIndex).toBeGreaterThanOrEqual(0);
+      expect(actionIndex).toBeGreaterThan(guardIndex);
+    });
+  }
+
+  it("defines the require-latest-main action that fails unless the sha is main's tip", () => {
+    const actionPath = path.join(
+      path.dirname(workflowPath),
+      "..",
+      "actions",
+      "require-latest-main",
+      "action.yml",
+    );
+    const actionText = existsSync(actionPath)
+      ? readFileSync(actionPath, "utf8")
+      : "";
+
+    expect(actionText).toMatch(/using:\s*["']?composite/);
+    expect(actionText).toContain("commits/main");
+    expect(actionText).toMatch(/exit 1/);
   });
 });
