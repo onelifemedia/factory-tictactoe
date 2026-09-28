@@ -1,22 +1,11 @@
 // F-012 (R-011): fails when the gzipped JavaScript in the build reaches the
 // 50 KB budget. Used by CI after `npm run build`: node scripts/check-bundle-size.mjs dist
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { isRunAsCommandLine, listFilesRecursively } from "./command-line.mjs";
 import { gzipSync } from "node:zlib";
 
 export const DEFAULT_LIMIT_BYTES = 51_200;
-
-/**
- * @param {string} directory
- * @returns {string[]}
- */
-function listFilesRecursively(directory) {
-  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(directory, entry.name);
-    return entry.isDirectory() ? listFilesRecursively(entryPath) : [entryPath];
-  });
-}
 
 /**
  * Gzip size (level 9) of every .js file under `directory`, and their total.
@@ -87,9 +76,6 @@ function runCommandLine(commandArguments) {
   return 0;
 }
 
-const isCommandLine =
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isCommandLine) {
+if (isRunAsCommandLine(import.meta.url)) {
   process.exitCode = runCommandLine(process.argv.slice(2));
 }

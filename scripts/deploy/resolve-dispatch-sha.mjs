@@ -1,6 +1,12 @@
 // F-013 (R-014): a manual deploy targets main's tip, and only when CI passed
 // for that exact SHA; otherwise it refuses (ADR-011).
-import { isRunAsCommandLine, readJsonInput } from "./read-json-input.mjs";
+import { isRunAsCommandLine, readJsonInput } from "../command-line.mjs";
+
+const STATE_DESCRIPTIONS = new Map([
+  ["in_progress", "in progress"],
+  ["queued", "queued (pending)"],
+  ["failure", "failed"],
+]);
 
 /** @typedef {{ id: number; head_sha: string; status: string; conclusion: string | null; event?: string; head_branch?: string }} CiRun */
 
@@ -17,8 +23,8 @@ export function resolveDispatchSha({ mainTipSha = "", ciRuns = [] }) {
   const runsForTip = ciRuns.filter(
     (run) =>
       run.head_sha === mainTipSha &&
-      (run.event ?? "push") === "push" &&
-      (run.head_branch ?? "main") === "main",
+      run.event === "push" &&
+      run.head_branch === "main",
   );
   if (runsForTip.some((run) => run.conclusion === "success")) {
     return { sha: mainTipSha };
@@ -33,19 +39,11 @@ export function resolveDispatchSha({ mainTipSha = "", ciRuns = [] }) {
       run.status === "completed" ? String(run.conclusion) : run.status,
     ),
   );
-  const described = [...states]
-    .map((state) =>
-      state === "in_progress"
-        ? "in progress"
-        : state === "queued"
-          ? "queued (pending)"
-          : state === "failure"
-            ? "failed"
-            : state,
-    )
+  const stateDescriptions = [...states]
+    .map((state) => STATE_DESCRIPTIONS.get(state) ?? state)
     .join(", ");
   return {
-    refusal: `CI for main's tip ${mainTipSha} is ${described}, not successful; refusing to deploy.`,
+    refusal: `CI for main's tip ${mainTipSha} is ${stateDescriptions}, not successful; refusing to deploy.`,
   };
 }
 

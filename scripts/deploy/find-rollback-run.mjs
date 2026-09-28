@@ -3,7 +3,7 @@
 // newest completed run on main whose deploy and smoke jobs succeeded.
 // Usage: node scripts/deploy/find-rollback-run.mjs <owner/repo> <current-run-id>
 import { execFileSync } from "node:child_process";
-import { isRunAsCommandLine } from "./read-json-input.mjs";
+import { isRunAsCommandLine } from "../command-line.mjs";
 import { findRollbackRun } from "./select-rollback-run.mjs";
 
 const PAGE_SIZE = 100;
@@ -25,19 +25,38 @@ export function buildRunsEndpoint(repository, pageNumber) {
   return `repos/${repository}/actions/workflows/deploy.yml/runs?per_page=${String(PAGE_SIZE)}&page=${String(pageNumber)}`;
 }
 
+const REQUEST_TIMEOUT_MILLISECONDS = 30_000;
+const ATTEMPT_COUNT = 2;
+
+class GitHubApiError extends Error {}
+
 /**
- * Calls `gh api` and lets gh project only the fields the decision needs, so a
- * 100-run page (over 1 MiB raw) never reaches Node's output buffer whole.
+ * Fetches `endpoint` with `gh api`, letting gh project only the fields the
+ * decision needs (a 100-run page is over 1 MiB raw). A failed call is retried
+ * once; a second failure is a GitHubApiError, never "no run found" (QA code
+ * review).
  * @param {string} endpoint
  * @param {string} fieldFilter
  * @returns {unknown}
  */
-function callGitHub(endpoint, fieldFilter) {
-  return JSON.parse(
-    execFileSync("gh", ["api", endpoint, "--jq", fieldFilter], {
-      encoding: "utf8",
-      maxBuffer: MAXIMUM_OUTPUT_BYTES,
-    }),
+function fetchGitHubJson(endpoint, fieldFilter) {
+  let lastError;
+  for (let attempt = 1; attempt <= ATTEMPT_COUNT; attempt += 1) {
+    try {
+      return JSON.parse(
+        execFileSync("gh", ["api", endpoint, "--jq", fieldFilter], {
+          encoding: "utf8",
+          maxBuffer: MAXIMUM_OUTPUT_BYTES,
+          timeout: REQUEST_TIMEOUT_MILLISECONDS,
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+      );
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw new GitHubApiError(
+    `GitHub API request failed after ${String(ATTEMPT_COUNT)} attempts: ${endpoint}: ${String(lastError)}`,
   );
 }
 
@@ -49,21 +68,31 @@ if (isRunAsCommandLine(import.meta.url)) {
     );
     process.exit(2);
   }
-  const runId = await findRollbackRun({
-    fetchRunsPage: (pageNumber) =>
-      /** @type {{ id: number; head_branch: string; status: string }[]} */ (
-        callGitHub(buildRunsEndpoint(repository, pageNumber), RUN_FIELDS)
-      ),
-    fetchJobs: (candidateRunId) =>
-      /** @type {{ name: string; conclusion: string | null }[]} */ (
-        callGitHub(
-          `repos/${repository}/actions/runs/${String(candidateRunId)}/jobs?per_page=100`,
-          JOB_FIELDS,
-        )
-      ),
-    currentRunId: Number(currentRunText),
-    pageSize: PAGE_SIZE,
-  });
+  let runId;
+  try {
+    runId = await findRollbackRun({
+      fetchRunsPage: (pageNumber) =>
+        /** @type {{ id: number; head_branch: string; status: string }[]} */ (
+          fetchGitHubJson(buildRunsEndpoint(repository, pageNumber), RUN_FIELDS)
+        ),
+      fetchJobs: (candidateRunId) =>
+        /** @type {{ name: string; conclusion: string | null }[]} */ (
+          fetchGitHubJson(
+            `repos/${repository}/actions/runs/${String(candidateRunId)}/jobs?per_page=100`,
+            JOB_FIELDS,
+          )
+        ),
+      currentRunId: Number(currentRunText),
+      pageSize: PAGE_SIZE,
+    });
+  } catch (error) {
+    if (!(error instanceof GitHubApiError)) {
+      throw error;
+    }
+    // Exit 2: an API failure, distinct from exit 1 (no earlier good run).
+    console.error(error.message);
+    process.exit(2);
+  }
   console.log(JSON.stringify({ runId }));
   process.exitCode = runId === null ? 1 : 0;
 }

@@ -1,7 +1,20 @@
-// F-013 (R-014): shared CLI plumbing for the deploy decision scripts.
-import { readFileSync } from "node:fs";
+// Shared plumbing for the Node scripts CI runs (F-012, F-013): walking a
+// directory, knowing whether a module was started as a command, and reading
+// a JSON input file. One copy instead of three (QA code review).
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+/**
+ * @param {string} directory
+ * @returns {string[]}
+ */
+export function listFilesRecursively(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = path.join(directory, entry.name);
+    return entry.isDirectory() ? listFilesRecursively(entryPath) : [entryPath];
+  });
+}
 
 /**
  * True when `moduleUrl` is the script Node was asked to run.
