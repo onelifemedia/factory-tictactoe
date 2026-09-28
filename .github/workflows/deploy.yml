@@ -1,0 +1,186 @@
+# F-013 (R-014): deploy the latest commit on main to GitHub Pages after CI
+# passes, smoke-test the live site, and roll back to the previous good build if
+# the smoke test fails (ADR-011). Pages itself is enabled in the deploy phase.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_smoke_failure:
+        description: Fail the smoke test on purpose to exercise the rollback
+        type: boolean
+        default: false
+
+# One queue for every deploy: runs wait their turn (first in, first out) and
+# none is cancelled. `queue: max` keeps up to 100 pending runs; the default
+# `single` would drop a waiting run for a newer one (ADR-011).
+concurrency:
+  group: pages
+  queue: max
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+jobs:
+  prepare:
+    name: prepare
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.decide.outputs.sha }}
+      should_deploy: ${{ steps.decide.outputs.should_deploy }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Decide what to deploy (checked after acquiring the pages slot)
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          main_tip=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            gh api "repos/$REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$main_tip&event=push&branch=main&per_page=100" \
+              | jq --arg tip "$main_tip" '{mainTipSha: $tip, ciRuns: [.workflow_runs[] | {id, head_sha, status, conclusion, event, head_branch}]}' \
+              > dispatch-input.json
+            if ! node scripts/deploy/resolve-dispatch-sha.mjs dispatch-input.json > resolution.json; then
+              jq -r .refusal resolution.json
+              exit 1
+            fi
+            candidate=$(jq -r .sha resolution.json)
+          else
+            candidate="$RUN_HEAD_SHA"
+          fi
+          jq -n --arg candidate "$candidate" --arg tip "$main_tip" \
+            '{candidateSha: $candidate, mainTipSha: $tip}' > decision-input.json
+          node scripts/deploy/decide-deployment.mjs decision-input.json > decision.json
+          jq -r .reason decision.json
+          echo "sha=$candidate" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=$(jq -r .shouldDeploy decision.json)" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: build
+    needs: prepare
+    if: ${{ needs.prepare.outputs.should_deploy == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Build with the commit as build id
+        env:
+          BUILD_ID: ${{ needs.prepare.outputs.sha }}
+        run: npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+          retention-days: 90
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  smoke:
+    name: smoke
+    needs: [prepare, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on purpose (force_smoke_failure)
+        if: ${{ inputs.force_smoke_failure }}
+        run: |
+          echo "force_smoke_failure is set: failing the smoke test to exercise the rollback."
+          exit 1
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Smoke-test the live site
+        env:
+          SMOKE_URL: ${{ needs.deploy.outputs.page_url }}
+          EXPECTED_BUILD_ID: ${{ needs.prepare.outputs.sha }}
+        run: npx playwright test -c playwright.smoke.config.ts
+
+  rollback:
+    name: rollback
+    needs: [deploy, smoke]
+    if: ${{ always() && needs.deploy.result == 'success' && needs.smoke.result == 'failure' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.rollback-deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Find the latest run whose deploy and smoke jobs succeeded
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if ! node scripts/deploy/find-rollback-run.mjs "$REPOSITORY" "$CURRENT_RUN_ID" > target.json; then
+            echo "No earlier successful deploy to roll back to; the site keeps the failed build."
+            exit 1
+          fi
+          echo "run_id=$(jq -r .runId target.json)" >> "$GITHUB_OUTPUT"
+      - name: Download that run's Pages artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: github-pages
+          run-id: ${{ steps.target.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: rollback-artifact
+      - name: Explain a missing artifact
+        if: ${{ failure() && steps.target.outcome == 'success' }}
+        run: echo "The previous build's artifact is unavailable (expired after 90 days or deleted); nothing to roll back to."
+      - name: Re-upload it unchanged under its own name
+        uses: actions/upload-artifact@v7
+        with:
+          name: github-pages-rollback
+          path: rollback-artifact/artifact.tar
+          retention-days: 1
+      - id: rollback-deployment
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-rollback
+      - name: Fail the run so the owner is emailed
+        env:
+          TARGET_RUN_ID: ${{ steps.target.outputs.run_id }}
+        run: |
+          echo "Smoke test failed; rolled back to the build from run $TARGET_RUN_ID."
+          exit 1
