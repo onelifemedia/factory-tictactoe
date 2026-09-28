@@ -137,9 +137,12 @@ body {
   cursor: pointer;
 }
 
+/* Each choice keeps its natural one-line width while it fits, never grows past
+   the action area, and wraps its label inside the button when text is enlarged
+   (F-010: nowrap clipped "Computer goes first" at 200% text, WCAG 1.4.4). */
 .choice .button {
-  flex: 1 1 auto;
-  white-space: nowrap;
+  flex: 1 0 auto;
+  max-width: 100%;
 }
 
 .button:hover {
