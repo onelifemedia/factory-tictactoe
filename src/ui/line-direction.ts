@@ -16,3 +16,13 @@ export function classifyLine(line: Line): LineDirection {
   }
   return second - first === 1 ? "row" : "column";
 }
+
+/**
+ * F-014 R-005: the win-line overlay path ("M x1 y1 L x2 y2") in the 300×300
+ * overlay's coordinates. Stub for the TDD red step; not implemented yet.
+ */
+export function describeWinLinePath(line: Line): string {
+  throw new Error(
+    `describeWinLinePath is not implemented yet (F-014): ${line.join(",")}`,
+  );
+}

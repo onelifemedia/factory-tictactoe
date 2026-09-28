@@ -1,5 +1,6 @@
-// F-006 R-001 R-010, F-007: shared page helpers for the e2e game specs:
-// touch-aware activation, board and status locators, and board expectations.
+// F-006 R-001 R-010, F-007, F-014 R-005 R-013: shared page helpers for the e2e
+// game specs: touch-aware activation, board and status locators, board
+// expectations, and reading the SVG piece a square shows.
 import {
   expect,
   type Locator,
@@ -75,20 +76,67 @@ export async function readSquareContents(page: Page): Promise<string[]> {
 }
 
 /**
- * The visible mark in every square matches its accessible name (Codex F-006
- * review C1): a board that announces X or O must also show it.
+ * The piece a square shows, read from its inline SVG (F-014 R-005 R-013):
+ * "X" for `<use href="#mark-x">`, "O" for `#mark-o`, "" when the square holds
+ * no `.mark` element, and a description of anything else (a text glyph, a
+ * piece without exactly one use element, or another href).
+ */
+export async function readPiece(square: Locator): Promise<string> {
+  return square.evaluate((element) => {
+    const pieces = element.querySelectorAll(".mark");
+    const [piece] = pieces;
+    if (piece === undefined) {
+      return "";
+    }
+    if (pieces.length > 1) {
+      return `${String(pieces.length)} .mark elements`;
+    }
+    const useElements = piece.querySelectorAll("use");
+    const [useElement] = useElements;
+    if (useElement === undefined || useElements.length > 1) {
+      return `a <${piece.tagName.toLowerCase()}> .mark with ${String(useElements.length)} use elements and text "${piece.textContent ?? ""}"`;
+    }
+    const href =
+      useElement.getAttribute("href") ??
+      useElement.getAttribute("xlink:href") ??
+      "";
+    if (href === "#mark-x") {
+      return "X";
+    }
+    if (href === "#mark-o") {
+      return "O";
+    }
+    return `use href "${href}"`;
+  });
+}
+
+/**
+ * The visible piece in every square matches its accessible name (Codex F-006
+ * review C1): a board that announces X or O must also show it. F-014: the
+ * piece is read from the SVG use element's href, and an empty square holds no
+ * piece at all.
  */
 export async function expectVisibleMarksMatchNames(page: Page): Promise<void> {
   for (const square of await locateSquares(page).all()) {
     const name = (await square.getAttribute("aria-label")) ?? "";
-    const expectedMark =
+    const expectedPiece =
       name.endsWith(", X") || name.endsWith(", O") ? name.slice(-1) : "";
-    const mark = square.locator(".mark");
-    await expect(mark).toHaveText(expectedMark);
-    if (expectedMark !== "") {
-      await expect(mark).toBeVisible();
+    await expect
+      .poll(() => readPiece(square), { message: `the piece shown in ${name}` })
+      .toBe(expectedPiece);
+    if (expectedPiece !== "") {
+      await expect(square.locator(".mark")).toBeVisible();
     }
   }
+}
+
+/** Resolves once every running CSS animation and transition has finished. */
+export async function waitForAnimationsToFinish(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await Promise.all(
+      document.getAnimations().map((animation) => animation.finished),
+    );
+  });
 }
 
 export async function expectEverySquareNativelyDisabled(
