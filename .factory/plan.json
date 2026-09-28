@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-09-27T20:53:26Z",
+  "generated_at": "2026-09-28T07:31:46Z",
   "traces_to": [
     ".factory/prd.md",
     ".factory/architecture.md",
@@ -25,7 +25,7 @@
       "title": "Unbeatable core: rules, perfect player, state machine and exact texts",
       "exit_criteria": [
         "Exhaustive never-lose test reports 0 computer losses for both starters in CI (primary metric)",
-        "A1\u2013A8 texts unit-tested exactly"
+        "A1–A8 texts unit-tested exactly"
       ],
       "features": [
         "F-002",
@@ -41,7 +41,8 @@
         "A full game completes by pointer, touch and keyboard only in all five projects",
         "0 axe violations in all states",
         "Bundle under 50 KB gzipped; no third-party requests, cookies or storage",
-        "Board stable across states; load-error and no-JS messages work"
+        "Board stable across states; load-error and no-JS messages work",
+        "Tabletop Tiles design (tokens v2) implemented: token, contrast, piece, win-line, layout and local-visuals tests green; motion off under reduced motion and never delays status, announcements or focus"
       ],
       "features": [
         "F-006",
@@ -50,7 +51,9 @@
         "F-009",
         "F-010",
         "F-011",
-        "F-012"
+        "F-012",
+        "F-014",
+        "F-015"
       ]
     },
     {
@@ -106,7 +109,7 @@
       ],
       "acceptance_criteria": [
         "Given a fresh clone with Node 22, when `npm ci` and `npm run build` run, then `dist/` contains index.html and one JS bundle built with target es2022 and base './'.",
-        "Given the repo, when `bash $PLUGIN/scripts/standards.sh check` runs, then it passes: Prettier format check, ESLint with the standards \u00a76 naming recipe (warnings as errors), `tsc --noEmit` strict, Vitest, git hooks in .githooks (pre-commit: format_check; pre-push: format_check, lint, typecheck, test), and CI running the same commands.",
+        "Given the repo, when `bash $PLUGIN/scripts/standards.sh check` runs, then it passes: Prettier format check, ESLint with the standards §6 naming recipe (warnings as errors), `tsc --noEmit` strict, Vitest, git hooks in .githooks (pre-commit: format_check; pre-push: format_check, lint, typecheck, test), and CI running the same commands.",
         "Given the built page served by `vite preview`, when Playwright loads it in all five projects (chromium, firefox, webkit, mobile-android, mobile-iphone), then it has lang=\"en\", the title 'Tic-tac-toe: play against a computer that never loses', one h1 'Tic-tac-toe', a main landmark, and body font-family beginning with system-ui.",
         "Given src/styles.css, when it is read, then every colour, size and spacing value in tokens.json is defined as a CSS custom property with the same value.",
         "Given a push or pull request, when CI runs, then format check, lint, typecheck, unit tests, build and the Playwright suite all run and pass."
@@ -144,7 +147,7 @@
         "Given a board and an occupied index, when placeMark is called, then it throws or returns the same board unchanged (documented) and never mutates the input; given an empty index, it returns a new board with only that square changed."
       ],
       "tests_first": [
-        "16 win cases (8 lines \u00d7 X/O) with line identification",
+        "16 win cases (8 lines × X/O) with line identification",
         "draw on full board without line; no result on partial board",
         "placeMark immutability and occupied-square handling",
         "emptySquares returns indexes in reading order"
@@ -251,16 +254,16 @@
       "screens": [],
       "components": [],
       "acceptance_criteria": [
-        "Given the events for each situation A1\u2013A8, when describeEvents runs, then the text equals the acceptance.md announcement table exactly, with placeholders filled.",
+        "Given the events for each situation A1–A8, when describeEvents runs, then the text equals the acceptance.md announcement table exactly, with placeholders filled.",
         "Given A4, when a unit test drives game.ts with an injected losing opponent and passes the events to describeEvents, then the text equals A4 exactly.",
-        "Given each of the 8 lines, when describeLine runs, then it returns the {LINE} wording ('row 1'\u2026'the diagonal from top right to bottom left').",
+        "Given each of the 8 lines, when describeLine runs, then it returns the {LINE} wording ('row 1'…'the diagonal from top right to bottom left').",
         "Given a square index and content, when squareLabel runs, then it returns 'Row R, column C, empty|X|O'.",
         "Given each state, when statusText runs, then it returns the visible status copy from design/screens.md exactly."
       ],
       "tests_first": [
-        "A1\u2013A8 exact strings (A4 via injected opponent)",
+        "A1–A8 exact strings (A4 via injected opponent)",
         "describeLine for all 8 lines",
-        "squareLabel for all 9 squares \u00d7 3 contents",
+        "squareLabel for all 9 squares × 3 contents",
         "statusText copy for choosing, playing (both starters, after a move), taken, win, draw"
       ],
       "needs_migration": false,
@@ -429,7 +432,7 @@
         "announcer (visually hidden role=status)"
       ],
       "acceptance_criteria": [
-        "Given each situation A1\u2013A3 and A5\u2013A8, when it occurs in Playwright, then the role=status region text equals the exact string.",
+        "Given each situation A1–A3 and A5–A8, when it occurs in Playwright, then the role=status region text equals the exact string.",
         "Given any board state, when squares are inspected, then each accessible name is 'Row R, column C, empty|X|O'.",
         "Given a human move, when the computer replies, then the region is updated once with a single message covering both moves; given the same taken square twice, then the message is written twice (cleared, then set)."
       ],
@@ -472,12 +475,12 @@
       ],
       "acceptance_criteria": [
         "Given each state (choice, in play, computer won, draw), when axe-core runs with wcag2a/2aa/21a/21aa/22aa tags in Chromium, Firefox and WebKit, then there are 0 violations.",
-        "Given 320\u00d7568, 390\u00d7844 and 1280\u00d7800 viewports, when each state is shown, then scrollWidth does not exceed the viewport width and every square and button is at least 44\u00d744 CSS px.",
-        "Given 320\u00d7568 and 1280\u00d7800 at default text size, when moving through choose, play (with taken and longest status) and game over, then the board's bounding box is identical.",
+        "Given 320×568, 390×844 and 1280×800 viewports, when each state is shown, then scrollWidth does not exceed the viewport width and every square and button is at least 44×44 CSS px.",
+        "Given 320×568 and 1280×800 at default text size, when moving through choose, play (with taken and longest status) and game over, then the board's bounding box is identical.",
         "Given tokens.json, when a unit test computes contrast, then every text pair is at least 7:1 and every non-text indicator at least 3:1."
       ],
       "tests_first": [
-        "axe 0 violations in 4 states \u00d7 3 engines",
+        "axe 0 violations in 4 states × 3 engines",
         "no horizontal overflow at 3 viewports",
         "44 px targets",
         "board bounding box stable across states",
@@ -597,14 +600,143 @@
       "tests_first": [
         "smoke.spec.ts against local `vite preview` with an expected BUILD_ID (passes) and a wrong one (times out)",
         "build-id meta equals the injected SHA in dist/index.html",
-        "is-latest-main script: tip SHA \u2192 deploy, older SHA \u2192 skip (fixture refs)",
+        "is-latest-main script: tip SHA → deploy, older SHA → skip (fixture refs)",
         "select-rollback-run script: given fixture run+job lists (good deploy, then a successful stale no-op run, then the failed deploy), it selects the good deploy; with none, it reports none",
-        "resolve-dispatch-sha script: tip with successful CI \u2192 SHA; pending or failed CI \u2192 refusal",
+        "resolve-dispatch-sha script: tip with successful CI → SHA; pending or failed CI → refusal",
         "actionlint passes on deploy.yml; a static check asserts concurrency has queue: max and cancel-in-progress: false"
       ],
       "needs_migration": false,
       "needs_feature_flag": false,
-      "notes": "Live behaviour (actual Pages deploy, forced rollback) is verified in the deploy phase per acceptance R-014; requires Pages enabled with source 'GitHub Actions' (a human-confirmed repo setting). Codex plan review: queue: max (GitHub, May 2026) keeps every pending run; the stale check runs after the slot is acquired; rollback selection requires successful deploy and smoke jobs; manual dispatch verifies CI for main's tip. Architecture \u00a76 and ADR-011 were revised to match (specification rework 2, 2026-09-27); queue: max is verified against GitHub docs. Accepted limit: an overflow beyond 100 pending runs is cancelled; the remedy is re-running the deploy for main's tip."
+      "notes": "Live behaviour (actual Pages deploy, forced rollback) is verified in the deploy phase per acceptance R-014; requires Pages enabled with source 'GitHub Actions' (a human-confirmed repo setting). Codex plan review: queue: max (GitHub, May 2026) keeps every pending run; the stale check runs after the slot is acquired; rollback selection requires successful deploy and smoke jobs; manual dispatch verifies CI for main's tip. Architecture §6 and ADR-011 were revised to match (specification rework 2, 2026-09-27); queue: max is verified against GitHub docs. Accepted limit: an overflow beyond 100 pending runs is cancelled; the remedy is re-running the deploy for main's tip."
+    },
+    {
+      "id": "F-014",
+      "title": "Restyle to Tabletop Tiles: tokens v2, tray and tiles, SVG pieces, win-line overlay",
+      "milestone": "M3",
+      "requirements": [
+        "R-005",
+        "R-010",
+        "R-013"
+      ],
+      "depends_on": [
+        "F-010",
+        "F-011",
+        "F-012"
+      ],
+      "size": "M",
+      "touches": [
+        "src/styles.css",
+        "index.html (hidden SVG defs block with #mark-x and #mark-o)",
+        "src/ui/view.ts (SVG pieces, one .win-line overlay instead of per-square strike segments)",
+        "src/ui/line-direction.ts (overlay path per line)",
+        "scripts/check-local-visuals.mjs (new)",
+        ".github/workflows/ci.yml (run check-local-visuals after build)",
+        "tests/unit/tokens.test.ts",
+        "tests/unit/contrast.test.ts",
+        "tests/unit/check-local-visuals.test.ts (new)",
+        "tests/unit/win-line-path.test.ts (new)",
+        "tests/e2e/game-page.ts (read pieces from the use element's href)",
+        "tests/e2e/game-over.spec.ts",
+        "tests/e2e/layout.spec.ts",
+        "tests/e2e/privacy.spec.ts",
+        "tests/e2e/shell.spec.ts"
+      ],
+      "screens": [
+        "game-01-choose-first.html",
+        "game-02-in-play.html",
+        "game-03-game-over.html"
+      ],
+      "components": [
+        "page layout (reserved status and action heights, title 1.75rem below 480 px)",
+        "board tray",
+        "board square (tile: active, occupied, disabled, winning)",
+        "piece (inline SVG X and O with backing disc)",
+        "win line (SVG overlay)",
+        "choice and Play again buttons (teal pill with 5 px edge)",
+        "fallback message (tile card)"
+      ],
+      "acceptance_criteria": [
+        "Given tokens.json version 2, when tests/unit/tokens.test.ts runs, then every token in color.light, font, space, radius, shadow, motion, size and a11y is a :root custom property in src/styles.css with an equivalent value (shadow is no longer excluded; the obsolete --motion-fast = 0ms assertion is replaced by one on a version-2 token).",
+        "Given tokens.json, when tests/unit/contrast.test.ts computes the pairs listed in design-system.md section 2 by class, then text pairs (text, text-muted, on-primary on their backgrounds) are at least 7:1 and non-text pairs (border, border-disabled, focus, primary, mark-x, mark-o, win-marker on their listed backgrounds) are at least 3:1, except the one documented exception, border on tile-edge (2.56:1, the tile's bottom side, whose boundary is carried by the other three sides and the edge), which is asserted only as its published value, not as a threshold; every ratio published in section 2 is reproduced to 2 decimals.",
+        "Given any occupied square, when the page is inspected, then it contains an aria-hidden inline svg element whose use element references the same-document #mark-x or #mark-o symbol, contains no X or O text glyph, and keeps the accessible name 'Row R, column C, X|O'; empty squares contain no piece.",
+        "Given a computer win on a row and on a diagonal in real games (and all 8 lines in a view-level unit test of the overlay path), when the result is shown, then exactly the three winning squares carry data-winning with a 4 px border (others 2 px), the board holds one aria-hidden .win-line overlay whose path passes within 1 px of the rendered centres of the three lifted winning tiles, pieces paint above the bar on a win-surface backing disc, and no square has a strike pseudo-element.",
+        "Given the choose state and the game-over state, when computed styles are read, then disabled squares use surface-sunken with the tile-resting edge, active empty squares use surface-tile with the tile edge, and buttons use the primary fill with a 6 px focus-ring offset (squares 3 px).",
+        "Given viewports 320x568, 390x844, 844x390 and 1280x800, when each state is shown, then the board is max(180px, min(100%, 360px, 45svh)) square, every tile is at least 44x44 CSS px and lies inside the tray, there is no horizontal overflow, the board's bounding box is identical across states at 320x568 and 1280x800, and at 320x568 both stacked choice buttons including their 5 px edge end within the viewport height.",
+        "Given a full game, when every request is recorded, then no font file and no image file (raster or SVG, any origin, including the page's own) is requested; scripts/check-local-visuals.mjs fails on any @font-face rule, img element or url() that references a file (fixture-based unit tests), and CI runs it as a post-build step on the real dist/ (after npm run build, like check-build-origins), where it passes.",
+        "Given the page, when computed styles are read, then the body font-family begins with system-ui and the title's begins with ui-rounded, system-ui.",
+        "Given the restyled build, when the existing suites run, then axe reports 0 violations in every state in Chromium, Firefox and WebKit, the JavaScript bundle stays under 50 KB gzipped, and the announcement, keyboard, focus, pointer, load-error and never-lose tests pass with only the mark-reading and strike-line helpers changed."
+      ],
+      "tests_first": [
+        "tokens.test.ts: version-2 tokens (including shadow) all mapped to :root with equal values",
+        "contrast.test.ts: text pairs >= 7:1, non-text pairs (including mark-x/mark-o on surface-tile, surface-sunken, win-surface) >= 3:1 with border-on-tile-edge excluded from the threshold list, every published section 2 ratio reproduced (including 2.56:1)",
+        "win-line-path.test.ts: each of the 8 lines maps to the overlay path through (50|150|250) centres extended 18 units at both ends",
+        "e2e pieces: occupied squares hold an svg element with a use element referencing #mark-x or #mark-o, no text glyph, accessible names unchanged",
+        "e2e game-over: row and diagonal wins have 4 px winning borders, one .win-line overlay whose path is within 1 px of the three lifted tile centres, no ::after strike",
+        "e2e layout: board size formula, tiles >= 44 px and inside the tray at 4 viewports including 844x390; board box identical across states; both choice buttons plus edge fit at 320x568",
+        "e2e styles: disabled vs active tile faces and edges; button focus offset 6 px, tile 3 px; title ui-rounded, body system-ui",
+        "check-local-visuals.test.ts: fixtures with @font-face, an img element, url(file.png) fail; url(#fragment) and an in-memory copy of the product markup and CSS pass (fixtures only; the real dist/ is checked by the CI post-build step)",
+        "privacy.spec.ts: no font or image requests of any origin during a full game"
+      ],
+      "needs_migration": false,
+      "needs_feature_flag": false,
+      "notes": "Design rework 2026-09-28 (direction C, Tabletop Tiles; design approved at 8885b635). The design approval commit lives on this feature's branch (factory/F-014-tabletop-tiles-restyle) because tokens.json v2 fails tokens.test.ts and contrast.test.ts until this feature lands; nothing reaches main before the PR. Static look only; motion is F-015. Behaviour, copy, focus rules and announcements are unchanged. Mockup CSS in design/screens/*.html (product styles block) is the reference; its :root is a 1:1 flatten of tokens.json."
+    },
+    {
+      "id": "F-015",
+      "title": "Tactile motion: press, drop and lift, all off under reduced motion",
+      "milestone": "M3",
+      "requirements": [
+        "R-008",
+        "R-010",
+        "R-013"
+      ],
+      "depends_on": [
+        "F-014"
+      ],
+      "size": "M",
+      "touches": [
+        "src/styles.css (motion block inside prefers-reduced-motion: no-preference)",
+        "src/ui/view.ts (apply is-new from new-pieces.ts; clear it on the next render)",
+        "src/ui/new-pieces.ts (new, pure: squares whose piece the last action placed, from the previous and next boards)",
+        "src/ui/touch-active.ts (new: passive touchstart listener so iOS Safari applies :active)",
+        "src/main.ts (wire touch-active)",
+        "tests/unit/touch-active.test.ts (new)",
+        "tests/unit/new-pieces.test.ts (new)",
+        "tests/e2e/motion.spec.ts (new)"
+      ],
+      "screens": [
+        "game-02-in-play.html",
+        "game-03-game-over.html"
+      ],
+      "components": [
+        "board square (press, hover)",
+        "piece (drop)",
+        "winning tile and win line (lift)",
+        "choice and Play again buttons (press)"
+      ],
+      "acceptance_criteria": [
+        "Given prefers-reduced-motion: no-preference, when a move is made (your X and the computer's reply), then exactly the squares whose pieces that action placed carry is-new and their pieces run the 280 ms drop animation; pieces from earlier moves do not animate, and the drop keyframes never change opacity (the piece is visible from the first frame).",
+        "Given the same move, when the page is read in the first animation frame after the click (animations still running), then the status line, the live-region text and, on game over, focus on Play again are already final (the computer's reply stays instant; R-008 texts unchanged).",
+        "Given a winning move with no-preference, when the result is shown, then the winning tiles and the win line run the 240 ms lift starting at 280 ms, and document.getAnimations() is empty 600 ms after the move.",
+        "Given prefers-reduced-motion: reduce (Playwright emulation), when squares and buttons are hovered and pressed and a full game including a win is played, then document.getAnimations() is always empty and the computed transform of every square and button stays none; a press shows only the shorter edge (tile-pressed / button-pressed shadow).",
+        "Given no-preference, when an active empty square is hovered, then it rises 1 px (translateY(-1px)); when it or a button is pressed, then it moves down 4 px with the tile-pressed / button-pressed edge through an 80 ms transition; occupied (aria-disabled) and disabled squares ignore hover and press; the drop keyframes start at translateY(-22px) scale(1.15).",
+        "Given the app starts, when main.ts runs, then exactly one passive touchstart listener is registered on document (so iOS Safari applies :active).",
+        "Given 320x568 and 1280x800 with no-preference, when the board's bounding box is sampled during and after a move's animations and after a win, then it is identical to the choose state's box.",
+        "Given the computer goes first, a taken-square attempt, and Play again followed by a new game, when each happens, then the opening O drops in; the taken-square attempt animates nothing and adds no is-new; and after Play again no piece carries is-new, so stale state never replays."
+      ],
+      "tests_first": [
+        "new-pieces.test.ts (pure, node environment): X plus the computer's O -> both squares; the computer's opening O -> that square; a taken-square attempt (board unchanged) -> none; after Play again (empty board) -> none",
+        "touch-active.test.ts (node environment, fake EventTarget): registers exactly one passive touchstart listener",
+        "motion.spec.ts (no-preference): drop runs only on new pieces, 280 ms, no opacity keyframe; lift 240 ms after 280 ms; getAnimations() empty by 600 ms",
+        "motion.spec.ts: status, live region and Play again focus final in the first frame after the move",
+        "motion.spec.ts (reduce): no animations, no transforms on hover or press, pressed edge shadow only",
+        "motion.spec.ts: board box identical during and after animations at 320x568 and 1280x800",
+        "motion.spec.ts (no-preference): hover rise 1 px on active empty tiles only; tile and button press 4 px, pressed edge, 80 ms transition; occupied and disabled tiles ignore hover and press; drop keyframe starts at translateY(-22px) scale(1.15)",
+        "motion.spec.ts regressions: computer opening O drops; taken-square attempt animates nothing; after Play again no is-new remains and the next game animates only its own pieces"
+      ],
+      "needs_migration": false,
+      "needs_feature_flag": false,
+      "notes": "Motion is the basic feedback allowed by the PRD non-goal 'animations beyond basics' and traces to R-013 (visual style and personality set in the design phase), R-008 (announcements never delayed) and R-010 (board never moves). Timings are tokens (motion.press, drop, lift, lift-delay); design-system.md section 4. Approved deviation from the direction board: X and O drop together (no stagger)."
     }
   ],
   "deferred": []

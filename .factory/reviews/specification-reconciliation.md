@@ -71,3 +71,24 @@ The approver chose option (a): fix architecture §6 and ADR-011 (Codex plan revi
   - Missing, accepted: "latest" is evaluated when a run acquires the slot; a newer commit's queued run deploys next.
 
 Rejected: none. No blocking findings remain open.
+
+## Rework 3 (2026-09-28): drop "plain"/"simple" for the design personality
+
+Decision D-4ff09b264a6545a69e47b5a2468b0f55, option (a), by Claude (test operator, authorized by Jim Gibbs): the new design personality (playful, tactile, confident) conflicted with "plain"/"simple" wording. The wording is dropped; every testable constraint is kept.
+
+| Change | Where |
+|---|---|
+| "a plain, fast, ad-free game" → "a fast, ad-free game" | PRD §1 |
+| R-013 restated: high-contrast (text ≥ 7:1, non-text ≥ 3:1), system font stack only, every visual drawn locally with CSS or inline SVG; no web fonts, no external images, no existing brand; personality set in design | PRD §4 R-013 |
+| Heading renamed; new criterion: no font or image file requested during a full game, and `dist/` has no `@font-face`, no `<img>`, no file-referencing `url()` | acceptance R-013 |
+| Quality standard and `design.brand` reworded without "plain"/"simple", with the same constraints made explicit | intent.json |
+
+Unchanged: R-010 (44 px targets), R-011 (50 KB JS gzipped), R-012 (no external requests, no storage), the R-013 font-family and contrast criteria.
+
+Rework review: Codex, AGREE (0 critical, 0 high, 2 medium).
+- **C1 (MEDIUM), accepted:** the first draft of the new criterion only banned images from other origins, so a same-origin `<img src="/texture.png">` passed while R-013 requires CSS or inline SVG. The criterion now bans any image file from any origin, any `<img>` element and any file-referencing `url()` in `dist/`. The current app uses none (checked `index.html`, `src/`).
+- **C2 (MEDIUM), rejected for this phase:** `design/design-system.md` still says "plain" and "no shadows". It is a design artifact; reopening at specification already invalidated the design approval, and the design rework replaces it. It is not a specification input.
+
+For the human: C1 tightens "drawn locally" to mean CSS or inline SVG only (no image files at all, even from the site's own origin). Say so if same-origin image files should be allowed.
+
+No blocking findings remain open.

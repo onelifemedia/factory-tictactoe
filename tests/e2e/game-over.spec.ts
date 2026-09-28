@@ -1,6 +1,10 @@
 // F-007 R-004 R-005 R-006: show the result, highlight the winning line and
-// play again. Target markup: .factory/design/screens/game-03-game-over.html
-// (3a, 3b, 3c). Move sequences follow the real computer player (ADR-010).
+// play again. F-014 R-005: the winning line is one aria-hidden .win-line
+// overlay whose path runs through the lifted winning tiles' centres, under
+// the pieces, which sit on a win-surface backing disc; there is no ::after
+// strike, and the overlay is hidden again after Play again. Target markup:
+// .factory/design/screens/game-03-game-over.html (3a, 3b, 3c). Move sequences
+// follow the real computer player (ADR-010).
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 import {
   SQUARE_COUNT,
@@ -13,13 +17,40 @@ import {
   locateSquares,
   locateStatus,
   playMoves,
+  readPiece,
+  waitForAnimationsToFinish,
   type MovePair,
 } from "./game-page";
+import { readPngPixel, type PixelColor } from "./read-png-pixel";
 
 type LineKind = "row" | "column" | "diagonal-down" | "diagonal-up";
 
+interface ScreenPoint {
+  x: number;
+  y: number;
+}
+
+interface WinLineMeasurement {
+  overlayCount: number;
+  isShown: boolean;
+  tagName: string;
+  ariaHidden: string | null;
+  pathCount: number;
+  stroke: string;
+  start: ScreenPoint | null;
+  end: ScreenPoint | null;
+}
+
 const WINNING_BORDER_WIDTH = "4px";
 const REGULAR_BORDER_WIDTH = "2px";
+const COLUMN_COUNT = 3;
+const CENTRE_TOLERANCE_PIXELS = 1;
+const LIFT_HEIGHT_PIXELS = 3;
+const PIXEL_CHANNEL_TOLERANCE = 4;
+const WIN_SURFACE: PixelColor = { red: 0xff, green: 0xd7, blue: 0x66 };
+const WIN_MARKER: PixelColor = { red: 0x2b, green: 0x1d, blue: 0x13 };
+const WIN_SURFACE_RGB = "rgb(255, 215, 102)";
+const WIN_MARKER_RGB = "rgb(43, 29, 19)";
 
 // 3a: human 0, 1, 3; the computer wins on squares 2, 4, 6.
 const DIAGONAL_WIN_MOVES: readonly MovePair[] = [
@@ -87,6 +118,240 @@ async function readStrikeContent(page: Page, index: number): Promise<string> {
   );
 }
 
+/**
+ * The board's .win-line overlay: how many there are, whether the first is
+ * shown (displayed, visible, with a non-empty path), and its path's rendered
+ * endpoints in viewport pixels.
+ */
+async function measureWinLine(page: Page): Promise<WinLineMeasurement> {
+  return locateBoard(page).evaluate((board) => {
+    const overlays = board.querySelectorAll(".win-line");
+    const [overlay] = overlays;
+    const paths = overlay?.querySelectorAll("path") ?? [];
+    const [path] = paths;
+    if (overlay === undefined) {
+      return {
+        overlayCount: 0,
+        isShown: false,
+        tagName: "",
+        ariaHidden: null,
+        pathCount: 0,
+        stroke: "",
+        start: null,
+        end: null,
+      };
+    }
+    const overlayStyle = getComputedStyle(overlay);
+    const overlayBox = overlay.getBoundingClientRect();
+    const pathLength =
+      path === undefined || (path.getAttribute("d") ?? "").trim() === ""
+        ? 0
+        : path.getTotalLength();
+    const isShown =
+      !overlay.hasAttribute("hidden") &&
+      overlayStyle.display !== "none" &&
+      overlayStyle.visibility !== "hidden" &&
+      Number(overlayStyle.opacity) > 0 &&
+      overlayBox.width > 0 &&
+      overlayBox.height > 0 &&
+      path !== undefined &&
+      getComputedStyle(path).display !== "none" &&
+      pathLength > 0;
+    const screenMatrix = path?.getScreenCTM() ?? null;
+    const toScreenPoint = (distance: number) => {
+      if (path === undefined || screenMatrix === null || pathLength === 0) {
+        return null;
+      }
+      const point = path
+        .getPointAtLength(distance)
+        .matrixTransform(screenMatrix);
+      return { x: point.x, y: point.y };
+    };
+    return {
+      overlayCount: overlays.length,
+      isShown,
+      tagName: overlay.tagName.toLowerCase(),
+      ariaHidden: overlay.getAttribute("aria-hidden"),
+      pathCount: paths.length,
+      stroke: path === undefined ? "" : getComputedStyle(path).stroke,
+      start: toScreenPoint(0),
+      end: toScreenPoint(pathLength),
+    };
+  });
+}
+
+async function readSquareCentres(page: Page): Promise<ScreenPoint[]> {
+  return locateSquares(page).evaluateAll((squares) =>
+    squares.map((square) => {
+      const box = square.getBoundingClientRect();
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+    }),
+  );
+}
+
+function measureDistanceToSegment(
+  point: ScreenPoint,
+  start: ScreenPoint,
+  end: ScreenPoint,
+): number {
+  const segmentX = end.x - start.x;
+  const segmentY = end.y - start.y;
+  const lengthSquared = segmentX * segmentX + segmentY * segmentY;
+  const projection =
+    lengthSquared === 0
+      ? 0
+      : Math.min(
+          1,
+          Math.max(
+            0,
+            ((point.x - start.x) * segmentX + (point.y - start.y) * segmentY) /
+              lengthSquared,
+          ),
+        );
+  return Math.hypot(
+    point.x - (start.x + projection * segmentX),
+    point.y - (start.y + projection * segmentY),
+  );
+}
+
+function findCentre(
+  centres: readonly ScreenPoint[],
+  index: number,
+): ScreenPoint {
+  const centre = centres[index];
+  if (centre === undefined) {
+    throw new Error(`no rendered centre for square ${String(index)}`);
+  }
+  return centre;
+}
+
+/**
+ * Where a winning tile's centre would be if it were not lifted, taken from a
+ * non-winning tile in the same row, or else from the non-winning tiles above
+ * and below it in the same column.
+ */
+function locateRestingCentreY(
+  centres: readonly ScreenPoint[],
+  winningSquares: readonly number[],
+  index: number,
+): number {
+  const row = Math.floor(index / COLUMN_COUNT);
+  const column = index % COLUMN_COUNT;
+  for (let peerColumn = 0; peerColumn < COLUMN_COUNT; peerColumn += 1) {
+    const peer = row * COLUMN_COUNT + peerColumn;
+    if (!winningSquares.includes(peer)) {
+      return findCentre(centres, peer).y;
+    }
+  }
+  const above = findCentre(centres, column);
+  const below = findCentre(centres, (COLUMN_COUNT - 1) * COLUMN_COUNT + column);
+  return above.y + ((below.y - above.y) * row) / (COLUMN_COUNT - 1);
+}
+
+/**
+ * One shown, aria-hidden svg.win-line with one path in win-marker, whose
+ * rendered segment passes within 1 px of the three winning tiles' centres,
+ * and those tiles are lifted 3 px.
+ */
+async function expectWinLineThroughLiftedCentres(
+  page: Page,
+  winningSquares: readonly number[],
+): Promise<void> {
+  await waitForAnimationsToFinish(page);
+  const winLine = await measureWinLine(page);
+  expect(winLine).toMatchObject({
+    overlayCount: 1,
+    isShown: true,
+    tagName: "svg",
+    ariaHidden: "true",
+    pathCount: 1,
+    stroke: WIN_MARKER_RGB,
+  });
+  const { start, end } = winLine;
+  if (start === null || end === null) {
+    throw new Error("the win-line path has no rendered endpoints");
+  }
+  const centres = await readSquareCentres(page);
+  for (const index of winningSquares) {
+    const centre = findCentre(centres, index);
+    expect(
+      measureDistanceToSegment(centre, start, end),
+      `distance from square ${String(index)}'s centre (${centre.x.toFixed(1)}, ${centre.y.toFixed(1)}) to the bar from (${start.x.toFixed(1)}, ${start.y.toFixed(1)}) to (${end.x.toFixed(1)}, ${end.y.toFixed(1)})`,
+    ).toBeLessThanOrEqual(CENTRE_TOLERANCE_PIXELS);
+    expect(
+      locateRestingCentreY(centres, winningSquares, index) - centre.y,
+      `square ${String(index)} lift in px`,
+    ).toBeCloseTo(LIFT_HEIGHT_PIXELS, 0);
+  }
+}
+
+/** The overlay is absent, or present once and not shown (Codex F-014 missing). */
+async function expectWinLineHidden(
+  page: Page,
+  stepName: string,
+): Promise<void> {
+  const winLine = await measureWinLine(page);
+  expect(
+    winLine.overlayCount,
+    `win-line overlays ${stepName}`,
+  ).toBeLessThanOrEqual(1);
+  expect(winLine.isShown, `win line shown ${stepName}`).toBe(false);
+}
+
+/** The colour a screenshot shows at one viewport point, in CSS pixels. */
+async function readScreenColor(
+  page: Page,
+  point: ScreenPoint,
+): Promise<PixelColor> {
+  const screenshot = await page.screenshot({
+    clip: {
+      x: Math.round(point.x) - 1,
+      y: Math.round(point.y) - 1,
+      width: 3,
+      height: 3,
+    },
+    scale: "css",
+    animations: "disabled",
+  });
+  return readPngPixel(screenshot, 1, 1);
+}
+
+function expectColorNear(
+  actualColor: PixelColor,
+  expectedColor: PixelColor,
+  description: string,
+): void {
+  for (const channel of ["red", "green", "blue"] as const) {
+    expect(
+      Math.abs(actualColor[channel] - expectedColor[channel]),
+      `${description}: ${channel} ${String(actualColor[channel])} vs ${String(expectedColor[channel])}`,
+    ).toBeLessThanOrEqual(PIXEL_CHANNEL_TOLERANCE);
+  }
+}
+
+/** A custom property of the square's piece, resolved to rgb() ("" if unset). */
+async function readPieceBackingColor(
+  page: Page,
+  index: number,
+): Promise<string> {
+  return locateSquare(page, index)
+    .locator(".mark")
+    .evaluate((piece) => {
+      const backing = getComputedStyle(piece)
+        .getPropertyValue("--mark-backing")
+        .trim();
+      if (backing === "" || backing === "none") {
+        return backing;
+      }
+      const probe = document.createElement("span");
+      probe.style.color = backing;
+      document.body.append(probe);
+      const resolved = getComputedStyle(probe).color;
+      probe.remove();
+      return resolved;
+    });
+}
+
 /** Exactly the winning squares carry data-winning and data-line; no others. */
 async function expectWinningLine(
   page: Page,
@@ -128,7 +393,7 @@ test.describe("game over: result, winning line and play again (F-007)", () => {
     await expectVisibleMarksMatchNames(page);
   });
 
-  test("winning squares have a 4px border and a strike line, and the other squares keep a 2px border with no strike (F-007 R-005)", async ({
+  test("winning squares have a 4px border and the other squares a 2px border, and no square draws an ::after strike (F-007 R-005, F-014 R-005)", async ({
     page,
   }, testInfo) => {
     await playGame(page, testInfo, DIAGONAL_WIN_MOVES);
@@ -139,20 +404,126 @@ test.describe("game over: result, winning line and play again (F-007)", () => {
     for (let index = 0; index < SQUARE_COUNT; index += 1) {
       const borderTopWidth = await readBorderTopWidth(page, index);
       const strikeContent = await readStrikeContent(page, index);
-      if (DIAGONAL_WIN_SQUARES.includes(index)) {
-        expect(borderTopWidth, `square ${String(index)} border`).toBe(
-          WINNING_BORDER_WIDTH,
-        );
-        expect(strikeContent, `square ${String(index)} strike`).not.toBe(
-          "none",
-        );
-      } else {
-        expect(borderTopWidth, `square ${String(index)} border`).toBe(
-          REGULAR_BORDER_WIDTH,
-        );
-        expect(strikeContent, `square ${String(index)} strike`).toBe("none");
-      }
+      expect(borderTopWidth, `square ${String(index)} border`).toBe(
+        DIAGONAL_WIN_SQUARES.includes(index)
+          ? WINNING_BORDER_WIDTH
+          : REGULAR_BORDER_WIDTH,
+      );
+      expect(strikeContent, `square ${String(index)} ::after strike`).toBe(
+        "none",
+      );
     }
+  });
+
+  test("a diagonal win shows one aria-hidden win-line overlay whose path passes within 1 px of the lifted centres of squares 2, 4 and 6 (F-014 R-005)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, DIAGONAL_WIN_MOVES);
+    await expect(locateStatus(page)).toHaveText(
+      "Computer wins with the diagonal from top right to bottom left.",
+    );
+
+    await expectWinLineThroughLiftedCentres(page, DIAGONAL_WIN_SQUARES);
+  });
+
+  test("a row win shows one aria-hidden win-line overlay whose path passes within 1 px of the lifted centres of squares 3, 4 and 5 (F-014 R-005)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, ROW_WIN_MOVES);
+    await expect(locateStatus(page)).toHaveText("Computer wins with row 2.");
+
+    await expectWinLineThroughLiftedCentres(page, ROW_WIN_SQUARES);
+  });
+
+  test("winning pieces sit on a win-surface backing disc and other pieces have none (F-014 R-005, Codex F-014 C2)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, DIAGONAL_WIN_MOVES);
+    await expect(locateStatus(page)).toHaveText(
+      "Computer wins with the diagonal from top right to bottom left.",
+    );
+
+    for (const index of DIAGONAL_WIN_SQUARES) {
+      expect(await readPiece(locateSquare(page, index))).toBe("O");
+      expect(
+        await readPieceBackingColor(page, index),
+        `square ${String(index)} backing`,
+      ).toBe(WIN_SURFACE_RGB);
+    }
+    for (const index of [0, 1, 3]) {
+      expect(await readPiece(locateSquare(page, index))).toBe("X");
+      expect(
+        await readPieceBackingColor(page, index),
+        `square ${String(index)} backing`,
+      ).toMatch(/^(none)?$/);
+    }
+  });
+
+  test("the winning O at the centre paints above the bar: its centre pixel is win-surface while the bar shows between tiles (F-014 R-005, Codex F-014 C2)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, DIAGONAL_WIN_MOVES);
+    await expect(locateStatus(page)).toHaveText(
+      "Computer wins with the diagonal from top right to bottom left.",
+    );
+    expect(await readPiece(locateSquare(page, 4))).toBe("O");
+    await waitForAnimationsToFinish(page);
+
+    const centres = await readSquareCentres(page);
+    const centreOfO = findCentre(centres, 4);
+    const topRightCentre = findCentre(centres, 2);
+    const gapOnTheBar = {
+      x: (centreOfO.x + topRightCentre.x) / 2,
+      y: (centreOfO.y + topRightCentre.y) / 2,
+    };
+
+    expectColorNear(
+      await readScreenColor(page, gapOnTheBar),
+      WIN_MARKER,
+      "the bar between squares 4 and 2",
+    );
+    expectColorNear(
+      await readScreenColor(page, centreOfO),
+      WIN_SURFACE,
+      "the centre of the winning O in square 4",
+    );
+  });
+
+  test("after a win, Play again hides the win line, and it stays hidden through the next game and a following draw (F-014 R-005 R-006, Codex F-014 missing)", async ({
+    page,
+  }, testInfo) => {
+    await expectWinLineHidden(page, "on the choice screen");
+    await playGame(page, testInfo, DIAGONAL_WIN_MOVES);
+    await expect(locateStatus(page)).toHaveText(
+      "Computer wins with the diagonal from top right to bottom left.",
+    );
+    expect((await measureWinLine(page)).isShown, "win line after the win").toBe(
+      true,
+    );
+
+    await activate(locatePlayAgain(page), testInfo);
+    await expect(locateStatus(page)).toHaveText("Who goes first?");
+    await expectWinLineHidden(page, "after Play again");
+
+    await chooseFirstMover(page, testInfo, "You go first");
+    await expect(locateStatus(page)).toHaveText("Your turn. You are X.");
+    await expectWinLineHidden(page, "after You go first");
+
+    await playMoves(page, testInfo, DRAW_MOVES.slice(0, 2));
+    await expectWinLineHidden(page, "during the next game");
+
+    await playMoves(page, testInfo, DRAW_MOVES.slice(2));
+    await expect(locateStatus(page)).toHaveText("It's a draw.");
+    await expectWinLineHidden(page, "after the following draw");
+  });
+
+  test("a draw from a fresh page shows no win line (F-014 R-005)", async ({
+    page,
+  }, testInfo) => {
+    await playGame(page, testInfo, DRAW_MOVES);
+    await expect(locateStatus(page)).toHaveText("It's a draw.");
+
+    await expectWinLineHidden(page, "after a draw");
   });
 
   test("a computer row win marks squares 3, 4 and 5 as row and names row 2 (F-007 R-004 R-005)", async ({

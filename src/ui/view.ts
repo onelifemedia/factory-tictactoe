@@ -1,5 +1,7 @@
-// F-006, F-007, F-008 (R-001, R-002, R-006, R-007, R-010): renders the game
-// state into the page and manages keyboard focus (roving tabindex, ADR-012).
+// F-006, F-007, F-008, F-014 (R-001, R-002, R-005, R-006, R-007, R-010): renders
+// the game state into the page and manages keyboard focus (roving tabindex,
+// ADR-012). Pieces are inline SVG using the #mark-x / #mark-o symbols in
+// index.html, and a win is drawn by one overlay on the board.
 // Every attribute is derived from the state on each render, and stale ones are
 // removed, so any phase can follow any other (render contract, F-006 spec).
 import {
@@ -10,7 +12,7 @@ import {
 } from "../game/board";
 import type { FirstMover, GameState } from "../game/game";
 import { nextSquareIndex, type FocusTarget } from "./focus";
-import { classifyLine } from "./line-direction";
+import { classifyLine, describeWinLinePath } from "./line-direction";
 import { describeSquareLabel } from "./messages";
 
 const EMPTY_BOARD = createEmptyBoard();
@@ -35,6 +37,7 @@ export interface GameView {
   ) => void;
 }
 
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const HINT_ID = "hint";
 const HINT_TEXT = "Arrow keys move between squares. Enter or Space places X.";
 
@@ -47,14 +50,60 @@ function createSquare(
   square.className = "square";
   square.dataset["index"] = String(index);
   square.tabIndex = -1;
-  const markElement = document.createElement("span");
-  markElement.className = "mark";
-  markElement.setAttribute("aria-hidden", "true");
-  square.append(markElement);
   square.addEventListener("click", () => {
     handlers.onSquareActivated(index);
   });
   return square;
+}
+
+function createPiece(mark: NonNullable<Cell>): SVGSVGElement {
+  const piece = document.createElementNS(SVG_NAMESPACE, "svg");
+  piece.setAttribute("aria-hidden", "true");
+  piece.setAttribute("viewBox", "0 0 100 100");
+  piece.append(document.createElementNS(SVG_NAMESPACE, "use"));
+  showPieceMark(piece, mark);
+  return piece;
+}
+
+function showPieceMark(piece: SVGSVGElement, mark: NonNullable<Cell>): void {
+  const symbolName = mark === "X" ? "mark-x" : "mark-o";
+  piece.setAttribute("class", `mark mark--${mark === "X" ? "x" : "o"}`);
+  piece.firstElementChild?.setAttribute("href", `#${symbolName}`);
+}
+
+/** Shows the cell's piece, or removes it so an empty square holds no piece. */
+function renderPiece(square: HTMLButtonElement, cell: Cell): void {
+  const piece = square.querySelector<SVGSVGElement>(".mark");
+  if (cell === null) {
+    piece?.remove();
+  } else if (piece) {
+    showPieceMark(piece, cell);
+  } else {
+    square.append(createPiece(cell));
+  }
+}
+
+function createWinLine(): SVGSVGElement {
+  const winLine = document.createElementNS(SVG_NAMESPACE, "svg");
+  winLine.setAttribute("class", "win-line");
+  winLine.setAttribute("aria-hidden", "true");
+  winLine.setAttribute("viewBox", "0 0 300 300");
+  winLine.setAttribute("preserveAspectRatio", "none");
+  winLine.setAttribute("hidden", "");
+  winLine.append(document.createElementNS(SVG_NAMESPACE, "path"));
+  return winLine;
+}
+
+function renderWinLine(winLine: SVGSVGElement, winningLine: Line | null): void {
+  if (winningLine === null) {
+    winLine.setAttribute("hidden", "");
+    return;
+  }
+  winLine.firstElementChild?.setAttribute(
+    "d",
+    describeWinLinePath(winningLine),
+  );
+  winLine.removeAttribute("hidden");
 }
 
 function createChoice(handlers: GameViewHandlers): HTMLElement {
@@ -114,10 +163,7 @@ function renderSquare(
   isPlaying: boolean,
   winningLine: Line | null,
 ): void {
-  const markElement = square.firstElementChild;
-  if (markElement) {
-    markElement.textContent = cell ?? "";
-  }
+  renderPiece(square, cell);
   square.setAttribute("aria-label", describeSquareLabel(index, cell));
   square.disabled = !isPlaying;
   if (isPlaying) {
@@ -155,7 +201,8 @@ export function createGameView(
   const squares = Array.from({ length: SQUARE_COUNT }, (_, index) =>
     createSquare(index, handlers),
   );
-  elements.board.replaceChildren(...squares);
+  const winLine = createWinLine();
+  elements.board.replaceChildren(...squares, winLine);
   let renderedPhase: GameState["phase"] | null = null;
   let activeIndex = 0;
 
@@ -237,6 +284,7 @@ export function createGameView(
           winningLine,
         );
       });
+      renderWinLine(winLine, winningLine);
       if (isPlaying) {
         makeSquareActive(activeIndex, false);
       }

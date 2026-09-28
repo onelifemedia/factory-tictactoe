@@ -1,5 +1,7 @@
-// F-001 R-013: every design token in .factory/design/tokens.json is defined as
-// a CSS custom property with an equivalent value in the :root block of src/styles.css.
+// F-001 R-013, F-014 R-013: every design token in .factory/design/tokens.json
+// (version 2: color.light, font, space, radius, shadow, motion, size, a11y) is
+// defined as a CSS custom property with an equivalent value in the :root block
+// of src/styles.css. Only version and breakpoint are excluded.
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
@@ -11,7 +13,7 @@ const stylesPath = `${projectRoot}src/styles.css`;
 type TokenTree = { [key: string]: TokenValue };
 type TokenValue = string | number | TokenTree;
 
-const excludedTopLevelKeys = new Set(["version", "shadow", "breakpoint"]);
+const excludedTopLevelKeys = new Set(["version", "breakpoint"]);
 
 function isTokenTree(candidate: unknown): candidate is TokenTree {
   return (
@@ -114,9 +116,19 @@ function readRootCustomProperties(): Map<string, string> {
 
 const expectedProperties = collectExpectedProperties(readTokens());
 
-describe("design tokens in src/styles.css (F-001 R-013)", () => {
-  it("maps tokens.json to the expected set of custom properties, including nested size leaves and motion", () => {
-    expect(expectedProperties.get("--motion-fast")).toBe("0ms");
+describe("design tokens in src/styles.css (F-001 R-013, F-014 R-013)", () => {
+  it("maps tokens.json version 2 to the expected set of custom properties, including shadow, nested size leaves and motion (F-014 R-013)", () => {
+    expect(expectedProperties.get("--motion-drop")).toBe(
+      "280ms cubic-bezier(0.3, 1.6, 0.5, 1)",
+    );
+    expect(expectedProperties.get("--size-board-max")).toBe(
+      "max(180px, min(100%, 360px, 45svh))",
+    );
+    expect(expectedProperties.get("--shadow-button")).toBe(
+      "0 5px 0 var(--color-primary-edge)",
+    );
+    expect(expectedProperties.get("--color-surface-tile")).toBe("#fffaf0");
+    expect(expectedProperties.has("--motion-fast")).toBe(false);
     expect(expectedProperties.get("--size-status-min-lines-narrow")).toBe("3");
     expect(expectedProperties.get("--font-weight-bold")).toBe("700");
     expect(expectedProperties.has("--color-light-surface")).toBe(false);
@@ -128,7 +140,7 @@ describe("design tokens in src/styles.css (F-001 R-013)", () => {
   });
 
   for (const [propertyName, expectedValue] of expectedProperties) {
-    it(`defines ${propertyName} as ${expectedValue} in :root`, () => {
+    it(`defines ${propertyName} as ${expectedValue} in :root (F-014 R-013)`, () => {
       const rootProperties = readRootCustomProperties();
       expect(
         rootProperties.has(propertyName),

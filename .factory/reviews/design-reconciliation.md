@@ -43,3 +43,14 @@ No Codex findings were rejected, so no rebuttal round was needed.
 
 ## Originally put to the human
 - Two design refinements conflict with the approved **architecture** text: §5 (focus after a choice goes to r1c1) and §2 (static fallback removed on start). The "board never moves" check is not yet an acceptance criterion. Options: (a) reopen specification to update architecture §2/§5 and add the check to acceptance R-010, then re-approve the specification together with the design (recommended; no shortcuts); (b) leave the refinements recorded in screens.md only.
+
+## Rework 2026-09-28: direction C, Tabletop Tiles
+
+The approver chose direction C from three boards (`design/directions/`). The design system, tokens and the three screens were rebuilt from it.
+
+Reviews: UX reviewer REQUEST-CHANGES (1 high, 6 medium, 8 low), Codex pass 1 AGREE (2 medium), Codex pass 2 AGREE (1 medium, 1 low). Every finding was accepted and fixed; none were rejected. Details and measurements: `reviews/20260928-032800-design-rework-reconciled.md`.
+
+For the human:
+- Approval leads to a planning rework (a restyle feature).
+- Committing `tokens.json` alone breaks `tokens.test.ts` and `contrast.test.ts`.
+- The stagger was dropped and disabled tiles darkened relative to the board.

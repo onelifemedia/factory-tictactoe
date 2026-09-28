@@ -3,6 +3,10 @@
 // in every game state, and a board whose bounding box
 // never moves between choose, play (taken message, longest status) and game
 // over at 320×568 and 1280×800.
+// F-014 R-010: at 320×568, 390×844, 844×390 and 1280×800 the board (the
+// tray) is max(180px, min(100%, 360px, 45svh)) square, every tile is at least
+// 44×44 and inside the tray, nothing overflows horizontally, and at 320×568
+// both stacked choice buttons end, with their 5 px edge, inside the viewport.
 import { test, expect, type Page, type TestInfo } from "@playwright/test";
 import {
   activate,
@@ -11,6 +15,7 @@ import {
   locateSquare,
   locateStatus,
   playMoves,
+  waitForAnimationsToFinish,
 } from "./game-page";
 import {
   DIAGONAL_WIN_MOVES,
@@ -311,4 +316,127 @@ test.describe("layout: text enlarged to 200% (F-010 R-010, WCAG 1.4.4)", () => {
       ).toEqual([]);
     });
   }
+});
+
+interface BoardGeometry {
+  boardBox: BoardBox;
+  containerContentWidth: number;
+  viewportHeight: number;
+  scrollWidth: number;
+  innerWidth: number;
+  tileBoxes: BoardBox[];
+}
+
+const BOARD_FORMULA_VIEWPORTS: readonly Viewport[] = [
+  { width: 320, height: 568 },
+  { width: 390, height: 844 },
+  { width: 844, height: 390 },
+  { width: 1280, height: 800 },
+];
+const BOARD_FLOOR_PIXELS = 180;
+const BOARD_CEILING_PIXELS = 360;
+const BOARD_VIEWPORT_HEIGHT_SHARE = 0.45;
+const FORMULA_TOLERANCE_PIXELS = 1;
+const BUTTON_EDGE_PIXELS = 5;
+
+async function measureBoardGeometry(page: Page): Promise<BoardGeometry> {
+  return locateBoard(page).evaluate((board) => {
+    const toBox = (element: Element) => {
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    };
+    const container = board.parentElement ?? document.body;
+    const containerStyle = getComputedStyle(container);
+    return {
+      boardBox: toBox(board),
+      containerContentWidth:
+        container.clientWidth -
+        Number.parseFloat(containerStyle.paddingLeft) -
+        Number.parseFloat(containerStyle.paddingRight),
+      viewportHeight: window.innerHeight,
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+      tileBoxes: [...board.querySelectorAll(".square")].map(toBox),
+    };
+  });
+}
+
+function calculateExpectedBoardWidth(geometry: BoardGeometry): number {
+  return Math.max(
+    BOARD_FLOOR_PIXELS,
+    Math.min(
+      geometry.containerContentWidth,
+      BOARD_CEILING_PIXELS,
+      BOARD_VIEWPORT_HEIGHT_SHARE * geometry.viewportHeight,
+    ),
+  );
+}
+
+test.describe("layout: the Tabletop Tiles board size (F-014 R-010)", () => {
+  for (const viewport of BOARD_FORMULA_VIEWPORTS) {
+    for (const gameState of GAME_STATES) {
+      test(`at ${describeViewport(viewport)} in the ${gameState.name} state the board is max(180px, min(100%, 360px, 45svh)) square, its tiles are at least 44×44 and inside it, and nothing overflows horizontally (F-014 R-010)`, async ({
+        page,
+      }, testInfo) => {
+        await page.setViewportSize(viewport);
+        await page.goto("/");
+        await gameState.reach(page, testInfo);
+        await waitForAnimationsToFinish(page);
+
+        const geometry = await measureBoardGeometry(page);
+        const expectedWidth = calculateExpectedBoardWidth(geometry);
+
+        expect(
+          Math.abs(geometry.boardBox.width - expectedWidth),
+          `board width ${String(geometry.boardBox.width)} vs ${String(expectedWidth)}`,
+        ).toBeLessThanOrEqual(FORMULA_TOLERANCE_PIXELS);
+        expect(
+          Math.abs(geometry.boardBox.height - geometry.boardBox.width),
+          `board height ${String(geometry.boardBox.height)} vs width ${String(geometry.boardBox.width)}`,
+        ).toBeLessThanOrEqual(FORMULA_TOLERANCE_PIXELS);
+        expect(
+          geometry.scrollWidth,
+          `scrollWidth ${String(geometry.scrollWidth)} vs innerWidth ${String(geometry.innerWidth)}`,
+        ).toBeLessThanOrEqual(geometry.innerWidth);
+
+        expect(geometry.tileBoxes).toHaveLength(SQUARE_COUNT);
+        const { boardBox } = geometry;
+        const misfitTiles = geometry.tileBoxes
+          .map((tileBox, index) => ({ index, ...tileBox }))
+          .filter(
+            (tileBox) =>
+              tileBox.width < MINIMUM_TARGET_PIXELS ||
+              tileBox.height < MINIMUM_TARGET_PIXELS ||
+              tileBox.x < boardBox.x ||
+              tileBox.y < boardBox.y ||
+              tileBox.x + tileBox.width > boardBox.x + boardBox.width ||
+              tileBox.y + tileBox.height > boardBox.y + boardBox.height,
+          );
+        expect(misfitTiles, "tiles under 44×44 or outside the tray").toEqual(
+          [],
+        );
+      });
+    }
+  }
+
+  test("at 320×568 both stacked choice buttons, including their 5 px edge, end inside the viewport (F-014 R-010)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto("/");
+    await expect(locateStatus(page)).toHaveText("Who goes first?");
+
+    for (const choiceName of ["You go first", "Computer goes first"]) {
+      const button = page.getByRole("button", { name: choiceName });
+      await expect(button).toBeVisible();
+      const box = await button.boundingBox();
+      expect(box, `${choiceName} box`).not.toBeNull();
+      expect(
+        (box?.y ?? Number.POSITIVE_INFINITY) +
+          (box?.height ?? 0) +
+          BUTTON_EDGE_PIXELS,
+        `${choiceName} bottom plus its edge`,
+      ).toBeLessThanOrEqual(568);
+    }
+  });
 });
