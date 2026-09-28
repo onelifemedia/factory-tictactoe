@@ -253,6 +253,48 @@ describe("findVisualFileReferences reports visual files (F-014 R-013)", () => {
     expect(describeFindings(findings)).toContain("felt.gif");
   });
 
+  it.each([
+    {
+      referenceName: "an unquoted style attribute",
+      markup: "<div style=background:url(wood.png)></div>",
+      fileName: "wood.png",
+    },
+    {
+      referenceName: "an SVG presentation attribute",
+      markup:
+        '<svg><rect fill="url(paint.svg#gradient)" width="1" height="1" /></svg>',
+      fileName: "paint.svg",
+    },
+  ])(
+    "reports a file url() in $referenceName of an HTML page (F-014 R-013, Codex F-014 C1)",
+    ({ markup, fileName }) => {
+      const fixtureDirectory = createFixtureDirectory();
+      writeCleanBuild(fixtureDirectory);
+      writeFixtureFile(
+        fixtureDirectory,
+        "index.html",
+        PRODUCT_LIKE_HTML.replace("</main>", `${markup}</main>`),
+      );
+      const findings = findVisualFileReferences(fixtureDirectory);
+      expect(findings.map((finding) => finding.kind)).toEqual(["url"]);
+      expect(describeFindings(findings)).toContain(fileName);
+    },
+  );
+
+  it("ignores url() text inside an inline script of an HTML page (F-014 R-013)", () => {
+    const fixtureDirectory = createFixtureDirectory();
+    writeCleanBuild(fixtureDirectory);
+    writeFixtureFile(
+      fixtureDirectory,
+      "index.html",
+      PRODUCT_LIKE_HTML.replace(
+        "</body>",
+        '<script>const pattern = "url(example.png)";</script></body>',
+      ),
+    );
+    expect(findVisualFileReferences(fixtureDirectory)).toEqual([]);
+  });
+
   it("reports every finding across files, not only the first (F-014 R-013)", () => {
     const fixtureDirectory = createFixtureDirectory();
     writeCleanBuild(fixtureDirectory);

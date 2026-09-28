@@ -17,8 +17,7 @@ const FONT_FACE_PATTERN = /@font-face\b/gi;
 const CSS_URL_PATTERN =
   /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|((?:\\.|[^\s"'()\\])+))\s*\)/gi;
 const IMG_TAG_PATTERN = /<img\b[^>]*>/gi;
-const INLINE_STYLE_PATTERN = /<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi;
-const STYLE_ATTRIBUTE_PATTERN = /\sstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+const INLINE_SCRIPT_PATTERN = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
 
 /**
  * Font faces and file url()s in a piece of CSS.
@@ -41,7 +40,10 @@ function findCssVisualFiles(css) {
 }
 
 /**
- * Image elements, and font faces and file url()s in inline styles.
+ * Image elements, and font faces and file url()s anywhere in the markup:
+ * style blocks, quoted or unquoted style attributes and SVG presentation
+ * attributes such as fill="url(paint.svg#gradient)" (Codex F-014 C1).
+ * Inline scripts are skipped.
  * @param {string} html
  * @returns {{ kind: "font-face" | "img" | "url"; text: string }[]}
  */
@@ -51,12 +53,9 @@ function findHtmlVisualFiles(html) {
   for (const match of html.matchAll(IMG_TAG_PATTERN)) {
     findings.push({ kind: "img", text: match[0] });
   }
-  for (const match of html.matchAll(INLINE_STYLE_PATTERN)) {
-    findings.push(...findCssVisualFiles(match[1] ?? ""));
-  }
-  for (const match of html.matchAll(STYLE_ATTRIBUTE_PATTERN)) {
-    findings.push(...findCssVisualFiles(match[1] ?? match[2] ?? ""));
-  }
+  findings.push(
+    ...findCssVisualFiles(html.replaceAll(INLINE_SCRIPT_PATTERN, "")),
+  );
   return findings;
 }
 
