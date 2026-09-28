@@ -1,0 +1,29 @@
+# F-013 (R-014), QA review: a deploy run may only touch the site while its
+# commit is still the latest on main; otherwise a newer run owns the site.
+# Used first by the deploy, smoke and rollback jobs, so a "Re-run failed jobs"
+# of an old run can never publish, test or roll back over a newer release.
+name: Require the latest commit on main
+description: Fails unless the given commit is still the tip of main.
+inputs:
+  sha:
+    description: The commit this run deploys
+    required: true
+  token:
+    description: Token for the GitHub API
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Check that the commit is still main's tip
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        REPOSITORY: ${{ github.repository }}
+        CANDIDATE_SHA: ${{ inputs.sha }}
+      run: |
+        set -euo pipefail
+        main_tip=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
+        if [ "$main_tip" != "$CANDIDATE_SHA" ]; then
+          echo "$CANDIDATE_SHA is no longer the latest commit on main ($main_tip); a newer run owns the site."
+          exit 1
+        fi

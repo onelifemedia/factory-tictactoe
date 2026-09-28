@@ -111,20 +111,16 @@ jobs:
     outputs:
       page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      # "Re-run failed jobs" reuses a passed prepare, so freshness is checked
-      # again here, on every attempt, right before publishing (QA review).
-      - name: Re-check that this commit is still the latest on main
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          CANDIDATE_SHA: ${{ needs.prepare.outputs.sha }}
-        run: |
-          set -euo pipefail
-          main_tip=$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)
-          if [ "$main_tip" != "$CANDIDATE_SHA" ]; then
-            echo "$CANDIDATE_SHA is no longer the latest commit on main ($main_tip); not deploying it."
-            exit 1
-          fi
+      # "Re-run failed jobs" reuses passed jobs, so freshness is checked again
+      # here, on every attempt, right before publishing (QA review).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: Require that this commit is still the latest on main
+        uses: ./.github/actions/require-latest-main
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          token: ${{ github.token }}
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
@@ -141,6 +137,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.sha }}
+      - name: Require that this commit is still the latest on main
+        uses: ./.github/actions/require-latest-main
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          token: ${{ github.token }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
@@ -155,7 +156,7 @@ jobs:
 
   rollback:
     name: rollback
-    needs: [deploy, smoke]
+    needs: [prepare, deploy, smoke]
     if: ${{ always() && needs.deploy.result == 'success' && needs.smoke.result == 'failure' }}
     runs-on: ubuntu-latest
     environment:
@@ -163,6 +164,11 @@ jobs:
       url: ${{ steps.rollback-deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Require that this commit is still the latest on main
+        uses: ./.github/actions/require-latest-main
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
+          token: ${{ github.token }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc

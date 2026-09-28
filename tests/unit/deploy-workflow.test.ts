@@ -257,7 +257,8 @@ describe("deploy.yml (F-013 R-014)", () => {
     );
   });
 
-  // QA security review (LOW): actions pinned by commit SHA, images by digest.
+  // QA security review (LOW): actions pinned by commit SHA, images by digest;
+  // local actions in this repository are pinned by the commit itself.
   it("pins every action by full commit SHA and every container by digest", () => {
     const ciText = readFileSync(
       path.join(path.dirname(workflowPath), "ci.yml"),
@@ -270,7 +271,7 @@ describe("deploy.yml (F-013 R-014)", () => {
     expect(usesLines.length).toBeGreaterThan(0);
     for (const line of usesLines) {
       expect(line).toMatch(
-        /uses:\s*(?:[\w.-]+\/[\w.-]+@[0-9a-f]{40}|docker:\/\/[^\s@]+@sha256:[0-9a-f]{64})(\s|$)/,
+        /uses:\s*(?:[\w.-]+\/[\w.-]+@[0-9a-f]{40}|docker:\/\/[^\s@]+@sha256:[0-9a-f]{64}|\.\/\.github\/actions\/[\w.-]+)(\s|$)/,
       );
     }
   });
